@@ -1,0 +1,6 @@
+[submodule "worship_hub_api"]
+	path = worship_hub_api
+	url = git@github.com:RichardBolanos/WorshipHub-API.git
+[submodule "worship_hub_ui"]
+	path = worship_hub_ui
+	url = git@github.com:RichardBolanos/WorshipHub-UI.git
