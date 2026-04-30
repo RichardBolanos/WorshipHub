@@ -134,9 +134,17 @@ patrol test -t integration_test/tests/auth/login_test.dart -d emulator-5554
 
 ## Priority for Next Session
 
-1. **Fix NavigationHelper** — hybrid approach: `appRouter.go()` + fallback drag-scroll for teams/setlists
-2. **Fix invitation tests** — add `seedHelper.login()` only in tests that need it (not in `registerUniqueAndLogin`)
-3. **Fix error handling tests** — identify specific failures with verbose output
-4. **Run calendar/chat/cross_feature** — may need file splitting to avoid orchestrator hangs
-5. **Increase song edit FAB timeout** — 10s → 20s
-6. **Add missing search/filter tests** — song_search_filter only has 2/4 tests
+1. **MIGRATE TO PATROL 4.x + WEB** (top priority)
+   - Upgrade `patrol: 3.20.0` → `patrol: ^4.1.0` in pubspec.yaml
+   - Upgrade `patrol_cli: 3.11.0` → `patrol_cli: 4.3.1` globally
+   - Install Playwright: `npx playwright install`
+   - Update `TestConfig.baseUrl` to use `localhost:9090` (no more `10.0.2.2`)
+   - Migrate `patrolTest` syntax to Patrol 4.x API (check migration guide)
+   - Run tests with `patrol test -d chrome`
+   - This eliminates: Android orchestrator hangs, Gradle lock files, emulator dependency, `10.0.2.2` mapping
+   - Migration guide: https://www.mintlify.com/leancodepl/patrol/migration/v3-to-v4
+
+2. **Fix NavigationHelper** after migration (may resolve itself with web)
+3. **Fix invitation tests** — add `seedHelper.login()` only where needed
+4. **Fix remaining test failures** with faster feedback loop (web is instant vs 5min Android builds)
+5. **Add missing tests** — song_search_filter (2 missing), complete coverage
