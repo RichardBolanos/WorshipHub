@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "patrol": {
+      "command": "C:\\flutter\\bin\\cache\\dart-sdk\\bin\\dart.exe",
+      "args": [
+        "run",
+        "patrol_mcp"
+      ],
+      "cwd": "D:\\Proyectos\\WorshipHub\\worship_hub_ui",
+      "env": {
+        "PROJECT_ROOT": "D:\\Proyectos\\WorshipHub\\worship_hub_ui"
+      },
+      "disabled": true
+    }
+  }
+}

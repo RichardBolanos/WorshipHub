@@ -7,226 +7,225 @@ description: Project organization, module structure, and folder conventions for 
 
 ## Repository Organization
 
-This is a multi-project repository containing both backend API and frontend UI:
+Monorepo with git submodules for backend and frontend:
 
 ```
 /
-├── worship_hub_api/     # Backend Spring Boot API
-└── worship_hub_ui/      # Frontend Flutter application
+├── .kiro/               # Kiro config (specs, steering, hooks, skills)
+├── worship_hub_api/     # Backend - Spring Boot + Kotlin (submodule)
+├── worship_hub_ui/      # Frontend - Flutter (submodule)
+└── skills-lock.json     # Kiro skills lock
 ```
+
+Clone with: `git clone --recurse-submodules <repo-url>`
 
 ## Backend API Structure (worship_hub_api)
 
-### Multi-Module Gradle Project
-
-The backend follows Clean Architecture with strict module boundaries:
+### Multi-Module Gradle Project (Clean Architecture + DDD)
 
 ```
 worship_hub_api/
-├── api/                 # API Layer (Controllers, DTOs, Security)
-├── application/         # Application Layer (Use Cases, Services)
-├── domain/             # Domain Layer (Entities, Business Logic)
-├── infrastructure/     # Infrastructure Layer (Repositories, External Services)
-├── build.gradle.kts    # Root build configuration
-└── settings.gradle.kts # Module definitions
+├── api/                 # API Layer (Controllers, DTOs, Security, WebSocket)
+├── application/         # Application Layer (Use Cases, Services, Commands)
+├── domain/              # Domain Layer (Entities, Business Logic, Events)
+├── infrastructure/      # Infrastructure Layer (JPA Repos, External Services)
+├── build.gradle.kts     # Root build config (Kotlin 2.1.0, Spring Boot 3.5.5)
+├── settings.gradle.kts  # Module definitions
+├── docker-compose.yml   # PostgreSQL + Mailpit
+└── Dockerfile
 ```
 
-### Module Dependencies
+### Module Dependencies (strict boundaries)
 
 ```
 api → application → domain ← infrastructure
 ```
 
-- **api**: Depends on application, domain, infrastructure
-- **application**: Depends on domain only
-- **domain**: No dependencies (pure business logic)
-- **infrastructure**: Depends on domain (implements domain interfaces)
+- **domain**: Zero dependencies — pure business logic, entities, domain services, repository interfaces
+- **application**: Depends on domain only — orchestrates use cases
+- **infrastructure**: Depends on domain — implements repository interfaces with JPA
+- **api**: Depends on all — controllers, DTOs, security, config
 
-### API Module Structure
+### API Module (`api/`)
 
 ```
-api/src/main/
-├── kotlin/com/worshiphub/
-│   ├── controller/          # REST controllers
-│   │   ├── auth/           # Authentication endpoints
-│   │   ├── organization/   # Church, user, team management
-│   │   ├── catalog/        # Song, category, tag endpoints
-│   │   ├── scheduling/     # Service, setlist, availability
-│   │   └── communication/  # Notifications, chat
-│   ├── dto/                # Request/Response DTOs
-│   ├── security/           # JWT, OAuth2, security config
-│   ├── config/             # Spring configuration
-│   └── WorshipHubApplication.kt
-└── resources/
-    ├── application.yml              # Base configuration
-    ├── application-{profile}.yml    # Profile-specific configs
-    └── db/migration/               # Flyway SQL migrations
+api/src/main/kotlin/com/worshiphub/
+├── api/                      # REST Controllers organized by bounded context
+│   ├── auth/                 # AuthController, OAuth2Controller
+│   ├── organization/         # ChurchController, TeamController, UserController, InvitationController
+│   ├── catalog/              # SongController, CategoryController, TagController
+│   ├── scheduling/           # ServiceEventController, SetlistController, AvailabilityController
+│   └── communication/        # NotificationController, ChatController
+├── config/                   # Spring configs (WebSocket, CORS, OpenAPI)
+├── security/                 # JwtTokenProvider, SecurityConfig, AuthInterceptor
+└── WorshipHubApplication.kt
+
+api/src/main/resources/
+├── application.yml           # Base configuration
+├── application-local.yml     # PostgreSQL local (port 5442)
+├── application-h2.yml        # H2 in-memory
+├── application-neon.yml      # Neon cloud PostgreSQL
+├── application-prod.yml      # Production
+└── db/migration/             # Flyway migrations (V1..V9)
 ```
 
-### Domain Module Structure
+### Domain Module (`domain/`) — 4 Bounded Contexts
 
 ```
 domain/src/main/kotlin/com/worshiphub/domain/
-├── organization/       # Organization bounded context
-│   ├── Church.kt
-│   ├── User.kt
-│   ├── Team.kt
-│   └── TeamMember.kt
-├── catalog/           # Catalog bounded context
-│   ├── Song.kt
-│   ├── Category.kt
-│   ├── Tag.kt
-│   ├── Attachment.kt
-│   └── ChordTransposer.kt
-├── scheduling/        # Scheduling bounded context
-│   ├── ServiceEvent.kt
-│   ├── Setlist.kt
-│   ├── AssignedMember.kt
-│   └── UserAvailability.kt
-└── communication/     # Communication bounded context
-    ├── Notification.kt
-    └── ChatMessage.kt
+├── organization/              # Church, User, Team, TeamMember, UserRole, TeamRole
+│   └── repository/            # ChurchRepository, UserRepository, TeamRepository, TeamMemberRepository
+├── catalog/                   # Song, Category, Tag, Attachment, AttachmentType, GlobalSong, ChordTransposer
+│   └── repository/            # SongRepository, CategoryRepository, TagRepository, AttachmentRepository
+├── scheduling/                # ServiceEvent, Setlist, AssignedMember, UserAvailability, ConfirmationStatus, ServiceEventStatus
+│   └── repository/            # ServiceEventRepository, SetlistRepository, UserAvailabilityRepository
+├── collaboration/             # Notification, NotificationType, ChatMessage, SongComment
+│   └── repository/            # NotificationRepository, ChatMessageRepository, SongCommentRepository
+└── shared/                    # Shared kernel
 ```
 
-### Application Module Structure
+### Application Module (`application/`)
 
 ```
 application/src/main/kotlin/com/worshiphub/application/
 ├── organization/
-│   └── OrganizationApplicationService.kt
+│   └── OrganizationApplicationService.kt   # Church registration, team CRUD, member assignment, invitations
 ├── catalog/
-│   └── CatalogApplicationService.kt
+│   └── CatalogApplicationService.kt        # Song CRUD, search, filter, categories, tags, attachments, comments
 ├── scheduling/
-│   └── SchedulingApplicationService.kt
+│   └── SchedulingApplicationService.kt     # Service scheduling, setlist CRUD, availability, auto-generation
 └── communication/
-    └── CommunicationApplicationService.kt
+    └── CommunicationApplicationService.kt  # Notifications, chat
 ```
 
-### Infrastructure Module Structure
+Each service uses Command objects (data classes) for input and returns `Result<T>` for error handling.
+
+### Infrastructure Module (`infrastructure/`)
 
 ```
 infrastructure/src/main/kotlin/com/worshiphub/infrastructure/
 ├── persistence/
-│   ├── entity/        # JPA entities
-│   └── repository/    # Spring Data JPA repositories
-├── email/            # Email service implementation
-└── websocket/        # WebSocket configuration
+│   ├── entity/                # JPA entity mappings (if separate from domain)
+│   └── repository/            # Spring Data JPA repository implementations
+├── email/                     # Email service (Mailpit for dev, SMTP for prod)
+└── websocket/                 # WebSocket/STOMP configuration
 ```
 
 ## Frontend UI Structure (worship_hub_ui)
 
-### Flutter Clean Architecture
+### Flutter Clean Architecture with Offline-First
 
 ```
 worship_hub_ui/lib/
 ├── core/
-│   ├── config/        # App configuration, constants
-│   ├── theme/         # Theme data, colors, typography
-│   ├── utils/         # Utility functions, helpers
-│   └── di/            # Dependency injection setup (GetIt)
-├── features/
-│   ├── auth/
-│   │   ├── domain/    # Entities, repository interfaces
-│   │   ├── data/      # Repository implementations, DTOs
-│   │   └── presentation/  # BLoC, pages, widgets
-│   ├── songs/
-│   │   ├── domain/
-│   │   ├── data/
-│   │   └── presentation/
-│   ├── setlists/
-│   │   ├── domain/
-│   │   ├── data/
-│   │   └── presentation/
-│   ├── calendar/
-│   │   ├── domain/
-│   │   ├── data/
-│   │   └── presentation/
-│   ├── notifications/
-│   │   ├── domain/
-│   │   ├── data/
-│   │   └── presentation/
-│   ├── teams/
-│   │   ├── domain/
-│   │   ├── data/
-│   │   └── presentation/
-│   └── chat/
-│       ├── domain/
-│       ├── data/
-│       └── presentation/
+│   ├── config/                # ApiConfig, AppConfig, Environment, EnvironmentConfig
+│   ├── constants/             # MusicalKeys (key validation, popular keys)
+│   ├── database/              # Drift database, type converters (TagListConverter, StringListConverter)
+│   ├── dependency_injection/  # GetIt service locator setup
+│   ├── error/                 # ApiException, ApiErrorParser, GlobalErrorHandler
+│   ├── logging/               # AppLogger (debug/info/warning/error levels)
+│   ├── network/               # Dio HTTP client setup
+│   ├── router/                # go_router navigation config
+│   ├── services/              # AuthInterceptor, ConnectivityService, L10nService, TokenService, WebSocketService
+│   ├── storage/               # SecureStorageService (token expiration validation)
+│   ├── sync/                  # ConflictResolver (lastWriteWins, keepLocal, keepRemote, userDecision)
+│   ├── theme/                 # Material Design 3 themes (light/dark)
+│   └── utils/                 # ChordProTransposer (semitone-based transposition)
+│
+├── data/
+│   ├── datasources/
+│   │   ├── local/             # Drift local database sources
+│   │   └── remote/            # REST API data sources
+│   ├── models/                # DTOs and data models
+│   └── repositories/          # Repository implementations (cache-first with 5-min TTL)
+│
+├── domain/
+│   ├── entities/              # User, Song, Setlist, ServiceEvent, Team, Invitation, Notification, ChatMessage
+│   ├── repositories/          # Repository interfaces
+│   └── usecases/              # LoginUser, RegisterChurch, GetAllSongs, TransposeSong, CreateSetlist, GenerateSetlist, TeamUseCases
+│
+├── presentation/
+│   ├── features/
+│   │   ├── auth/              # Login, register, Google Sign-In, email verification
+│   │   ├── dashboard/         # Main dashboard with stats
+│   │   ├── songs/             # Song catalog, ChordPro editor/renderer, transpose bar
+│   │   ├── setlists/          # Setlist management with drag & drop
+│   │   ├── calendar/          # Service calendar with table_calendar
+│   │   ├── teams/             # Team management
+│   │   ├── invitations/       # Invitation flow
+│   │   ├── chat/              # Real-time WebSocket chat
+│   │   ├── notifications/     # Push notifications
+│   │   ├── profile/           # User profile, settings
+│   │   ├── categories/        # Category/tag management
+│   │   └── welcome/           # Onboarding
+│   └── widgets/
+│       ├── chord_pro/         # ChordProEditor, ChordProController, ChordProRenderer, TransposeBar
+│       └── sync_status_indicator.dart  # Sync status chip (green synced / orange pending)
+│
+├── firebase_options.dart
 └── main.dart
 ```
 
 ### Feature Module Pattern
 
-Each feature follows the same structure:
+Each feature follows domain/data/presentation separation:
 
 ```
 feature_name/
 ├── domain/
-│   ├── entities/          # Business entities
+│   ├── entities/          # Business entities (Equatable, copyWith)
 │   ├── repositories/      # Repository interfaces
-│   └── usecases/         # Business use cases
+│   └── usecases/          # Business use cases
 ├── data/
-│   ├── models/           # DTOs and data models
-│   ├── datasources/      # API and local data sources
-│   └── repositories/     # Repository implementations
+│   ├── models/            # DTOs for serialization
+│   ├── datasources/       # Remote (API) and Local (Drift) sources
+│   └── repositories/      # Implementations with SyncableEntity support
 └── presentation/
-    ├── bloc/             # BLoC state management
-    ├── pages/            # Full screen pages
-    └── widgets/          # Reusable UI components
+    ├── bloc/              # BLoC state management (flutter_bloc)
+    ├── pages/             # Full screen pages
+    └── widgets/           # Reusable UI components
 ```
-
-## Configuration Files
-
-### Backend Configuration
-
-- **application.yml**: Base Spring Boot configuration
-- **application-local.yml**: H2 development database
-- **application-prod.yml**: Production PostgreSQL
-- **build.gradle.kts**: Gradle build configuration with Kotlin DSL
-
-### Frontend Configuration
-
-- **pubspec.yaml**: Flutter dependencies and assets
-- **api.json**: API contract definition (source of truth)
-- **analysis_options.yaml**: Dart linter configuration
-
-## Database Migrations
-
-Located in `worship_hub_api/api/src/main/resources/db/migration/`:
-
-- Versioned SQL files following Flyway naming convention
-- Format: `V{version}__{description}.sql`
-- Applied automatically on application startup
 
 ## Testing Structure
 
 ### Backend Tests
-
 ```
 api/src/test/kotlin/com/worshiphub/
-├── controller/        # Controller integration tests
-├── service/          # Service unit tests
-└── integration/      # End-to-end tests
+├── controller/            # Controller integration tests (MockMvc, 12 files)
+├── service/               # Service unit tests (MockK, 4 files)
+├── integration/           # End-to-end tests (2 files)
+domain/src/test/           # Domain logic tests (ChordTransposer, Song, 3 files)
 ```
 
 ### Frontend Tests
-
 ```
 worship_hub_ui/test/
-├── features/
-│   └── {feature}/
-│       ├── domain/    # Use case tests
-│       ├── data/      # Repository tests
-│       └── presentation/  # BLoC tests
-└── widget_test.dart
+├── bugfix/                # Bug condition exploration + preservation tests
+├── helpers/               # TestLogger, BlocFactory
+├── fixtures/              # UserFixtures
+├── unit/
+│   ├── blocs/             # SongBloc, SetlistBloc, CategoryBloc tests
+│   ├── core/logging/      # AppLogger tests (8 tests)
+│   └── repositories/      # CategoryRepositoryImpl tests
+├── widgets/               # SongCard tag rendering tests
+└── integration/           # auth_flow (11), song_crud (7), setlist_flow (10), sync_flow (8) tests
 ```
+
+## Database Migrations
+
+Located in `worship_hub_api/api/src/main/resources/db/migration/`:
+- Flyway naming: `V{version}__{description}.sql` (V1 through V9)
+- Applied automatically on startup
+- V8: Redesign categories/tags (join tables, indexes, FKs)
+- V9: Error logs table
 
 ## Key Conventions
 
-- **Naming**: English for all code, Spanish for UI text
-- **Package Structure**: Group by feature/bounded context, not by layer
-- **File Naming**: PascalCase for classes, snake_case for files (Dart), camelCase for Kotlin files
-- **DTOs**: Separate Request/Response DTOs with clear naming (e.g., `CreateSongRequest`, `SongResponse`)
-- **Entities**: Pure domain models without framework dependencies in domain layer
-- **Repositories**: Interface in domain, implementation in infrastructure/data
+- **Language**: English for all code/comments/docs. Spanish for UI text (i18n with flutter_localizations)
+- **Package Structure**: Group by bounded context / feature, not by layer
+- **File Naming**: PascalCase for Kotlin classes, snake_case for Dart files
+- **DTOs**: Separate Request/Response with clear naming (`CreateSongRequest`, `SongResponse`)
+- **Entity Identity**: `equals()`/`hashCode()` based on ID only (DDD pattern)
+- **Repositories**: Interface in domain, implementation in infrastructure (backend) or data (frontend)
+- **Error Handling**: Backend returns `Result<T>`, frontend uses `ApiException` + `ApiErrorParser`
+- **Immutability**: Kotlin `data class` with `copy()`, Dart entities with `copyWith()`
