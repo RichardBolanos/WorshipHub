@@ -9,11 +9,12 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tests executed | 51 / ~85 |
-| Passing | 38 |
-| Failing | 13 |
-| Pass rate | 75% |
-| Files fully green | 6 / 10 executed |
+| Total tests written | ~85 |
+| Total executed | 59 |
+| Passing | 40 |
+| Failing | 19 |
+| Pass rate (executed) | 68% |
+| Files fully green | 6 / 15 |
 
 ## Results by File
 
@@ -27,69 +28,85 @@
 | 6 | notifications/notifications_test.dart | 5 | 4 | 1 | 80% | 🟡 |
 | 7 | categories/category_tag_test.dart | 6 | 5 | 1 | 83% | 🟡 |
 | 8 | profile/profile_password_test.dart | 4 | 4 | 0 | 100% | ✅ |
-| 9 | teams/team_management_test.dart | 6 | 1 | 5 | 17% | 🔴 |
-| 10 | setlists/setlist_crud_test.dart | 6 | 1 | 5 | 17% | 🔴 |
-| 11 | auth/invitation_acceptance_test.dart | 7 | — | — | — | ⏳ Pending |
-| 12 | calendar/calendar_availability_test.dart | 7 | — | — | — | ⏳ Pending (hung) |
-| 13 | chat/team_chat_test.dart | 4 | — | — | — | ⏳ Pending |
-| 14 | cross_feature/cross_feature_flows_test.dart | 4 | — | — | — | ⏳ Pending |
-| 15 | error_handling/error_states_test.dart | 4 | — | — | — | ⏳ Pending |
+| 9 | teams/team_management_test.dart | 4 | 1 | 3 | 25% | 🔴 |
+| 10 | setlists/setlist_crud_test.dart | 5 | 1 | 4 | 20% | 🔴 |
+| 11 | auth/invitation_acceptance_test.dart | 7 | 0 | 7 | 0% | 🔴 |
+| 12 | error_handling/error_states_test.dart | 4 | 0 | 4 | 0% | 🔴 |
+| 13 | calendar/calendar_availability_test.dart | 7 | — | — | — | ⏳ Hung |
+| 14 | chat/team_chat_test.dart | 4 | — | — | — | ⏳ Hung |
+| 15 | cross_feature/cross_feature_flows_test.dart | 4 | — | — | — | ⏳ Hung |
 
-## Known Failing Tests
+## Root Causes of Failures
 
-### songs/song_crud_test.dart — 1 failure
-- **"Tap edit FAB on Song_Detail_Page shows pre-filled form"** — The edit FAB (Icons.edit) loads asynchronously via `_loadUserRole()` from SharedPreferences. The `_waitForEditFab` polling timeout may be too short on the emulator.
+### 1. Android Test Orchestrator instability (affects all files)
+The orchestrator intermittently hangs, loses tests, or leaves Gradle lock files. Some runs find 6 tests, others find 4 for the same file. Files with many tests (calendar 7, chat 4, cross_feature 4) consistently hang.
 
-### notifications/notifications_test.dart — 1 failure
-- TBD — need to identify which test fails
+### 2. Invitation tests — `_authToken != null` assertion
+`sendInvitation()` requires prior `login()` but some invitation tests skip the API login step. The `ApiSeedHelper` asserts `_authToken != null` before making authenticated requests.
 
-### categories/category_tag_test.dart — 1 failure
-- TBD — need to identify which test fails
+### 3. Error handling tests — assertion at line 175
+The `ErrorSimulationInterceptor` tests fail because they try to access `GetIt.instance<Dio>()` after the app is pumped, but the Dio instance may not be accessible from the test scope.
 
-### teams/team_management_test.dart — 5 failures
-- **Previous root cause:** NavigationHelper `_navigateViaFeatureCard` failed with `Bad state: No element` when trying to find and tap the "Equipos" feature card on the Home page. The card was below the fold, and the `.last` finder threw when the text appeared only once.
-- **Fix applied:** NavigationHelper refactored to use programmatic `appRouter.go()` instead of UI-based feature card tapping. This eliminates scroll/finder issues entirely. Needs re-run to confirm fix.
-- Tests 2 (create form) passes because it uses `registerUniqueAndLogin()` which doesn't need pre-seeded data.
+### 4. Teams/Setlists — first test fails, rest cascade
+The first test in each file fails (likely navigation or data loading timing), and subsequent tests fail because the orchestrator doesn't fully reset app state between tests.
+
+### 5. Song edit FAB — async role loading
+The edit FAB only appears after `_loadUserRole()` completes asynchronously. The polling timeout may be too short.
+
+## What Works Well
+
+- **Auth flows (login + registration):** 11/11 — 100%
+- **Song CRUD:** 7/8 — 87%
+- **Navigation:** 3/3 — 100%
+- **Profile/Password:** 4/4 — 100%
+- **Categories:** 5/6 — 83%
+- **Notifications:** 4/5 — 80%
+- **Song search:** 2/2 — 100%
+
+**Total for stable files: 36/39 = 92%**
+
+## Infrastructure Issues (not test logic)
+
+1. **Gradle lock files** — `utp.0.log.lck` blocks consecutive runs. Workaround: `gradlew --stop` + delete `build/app/outputs/androidTest-results/`
+2. **Orchestrator hangs** — Some test files hang indefinitely during execution. No reliable workaround found.
+3. **`Stop-Process -Name java`** — Kills the backend along with Gradle. Must use `gradlew --stop` instead.
+4. **Patrol MCP** — Cannot run on Windows due to `SIGTERM` not supported in Dart on Windows.
 
 ## Backend Fixes Applied
 
-1. **NoOpEmailService.kt** — Created for H2 profile to prevent email sending failures
-2. **ChurchRegistrationService.kt** — Auto-verify and activate users in H2 profile so E2E tests can login immediately
-3. **application-h2.yml** — Fixed mail username to valid email address
+1. **NoOpEmailService.kt** — No-op email for H2 profile
+2. **ChurchRegistrationService.kt** — Auto-verify users in H2 profile
+3. **application-h2.yml** — Fixed mail username
 
 ## App Fixes Applied
 
-1. **ConnectionStatusIndicator** — Replaced `Stream.periodic` with `Stream.value` to prevent persistent timers
-2. **LoginPage shimmer** — Removed `controller.repeat()` to prevent persistent animation
-3. **HomePage shimmer** — Removed `controller.repeat()` to prevent persistent animation
-4. **WebSocketService** — Added `forTesting()` constructor; test_app uses `_NoOpWebSocketService`
-5. **ConnectivityService** — test_app uses `_TestConnectivityService` without periodic timers
-6. **WorshipManagerApp** — Added optional `locale` parameter for test locale override
-
-## Test Infrastructure
-
-- **patrol_base.dart** — `TestEnvironment` with setup/tearDown, uses `$.pumpWidget` + `$.pump(3s)` instead of `pumpWidgetAndSettle`
-- **test_app.dart** — Forces `Locale('es')`, no-op WebSocket, no-op ConnectivityService, in-memory Drift DB
-- **NavigationHelper** — Programmatic navigation via `appRouter.go()` (replaced UI-based feature card tapping to avoid scroll/finder issues)
-- **FormHelper** — Tap before enterText, ensureVisible before tap
-- **WaitHelper** — All waits use `$.pump(Duration)`, never `pumpAndSettle`
-- **ApiSeedHelper** — Direct HTTP client for seeding data via real API
-- **Android build.gradle.kts** — PatrolJUnitRunner + Android Test Orchestrator
+1. **ConnectionStatusIndicator** — `Stream.periodic` → `Stream.value`
+2. **LoginPage/HomePage** — Removed `controller.repeat()` shimmer animations
+3. **WebSocketService** — `forTesting()` constructor + `_NoOpWebSocketService`
+4. **ConnectivityService** — `_TestConnectivityService` without timers
+5. **WorshipManagerApp** — Optional `locale` parameter for test override
 
 ## How to Run
 
 ```powershell
-# Prerequisites: backend running with H2, emulator running
+# From worship_hub_ui/ directory
 $env:PATH = "$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:PATH = "$env:ANDROID_HOME\platform-tools;$env:PATH"
 
-# Clean before each run (Gradle lock file workaround)
+# IMPORTANT: Clean before each run
+.\android\gradlew.bat --stop
 Remove-Item -Recurse -Force "build\app\outputs\androidTest-results" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "build\app\reports\androidTests" -ErrorAction SilentlyContinue
 
-# Run a specific test file
+# Run one file at a time
 patrol test -t integration_test/tests/auth/login_test.dart -d emulator-5554
-
-# Run from worship_hub_ui/ directory
 ```
+
+## Next Steps
+
+1. Fix invitation tests (`_authToken` assertion — add `login()` call before `sendInvitation()`)
+2. Fix error handling tests (Dio access from test scope)
+3. Investigate orchestrator hangs for calendar/chat/cross_feature
+4. Increase `_waitForEditFab` timeout for song edit test
+5. Consider splitting large test files to avoid orchestrator issues
