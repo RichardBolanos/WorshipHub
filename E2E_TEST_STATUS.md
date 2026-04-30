@@ -9,11 +9,11 @@
 
 | Metric | Value |
 |--------|-------|
-| Total tests executed | 43 / ~85 |
-| Passing | 35 |
-| Failing | 8 |
-| Pass rate | 81% |
-| Files fully green | 5 / 8 executed |
+| Total tests executed | 51 / ~85 |
+| Passing | 38 |
+| Failing | 13 |
+| Pass rate | 75% |
+| Files fully green | 6 / 10 executed |
 
 ## Results by File
 
@@ -22,15 +22,15 @@
 | 1 | auth/login_test.dart | 6 | 6 | 0 | 100% | ✅ |
 | 2 | auth/church_registration_test.dart | 5 | 5 | 0 | 100% | ✅ |
 | 3 | songs/song_crud_test.dart | 8 | 7 | 1 | 87% | 🟡 |
-| 4 | navigation/app_navigation_test.dart | 3 | 3 | 0 | 100% | ✅ |
-| 5 | notifications/notifications_test.dart | 5 | 4 | 1 | 80% | 🟡 |
-| 6 | categories/category_tag_test.dart | 6 | 5 | 1 | 83% | 🟡 |
-| 7 | profile/profile_password_test.dart | 4 | 4 | 0 | 100% | ✅ |
-| 8 | teams/team_management_test.dart | 6 | 1 | 5 | 17% | 🔴 |
-| 9 | auth/invitation_acceptance_test.dart | 7 | — | — | — | ⏳ Pending |
-| 10 | songs/song_search_filter_test.dart | 4 | — | — | — | ⏳ Pending |
-| 11 | setlists/setlist_crud_test.dart | 6 | — | — | — | ⏳ Pending |
-| 12 | calendar/calendar_availability_test.dart | 7 | — | — | — | ⏳ Pending |
+| 4 | songs/song_search_filter_test.dart | 2 | 2 | 0 | 100% | ✅ |
+| 5 | navigation/app_navigation_test.dart | 3 | 3 | 0 | 100% | ✅ |
+| 6 | notifications/notifications_test.dart | 5 | 4 | 1 | 80% | 🟡 |
+| 7 | categories/category_tag_test.dart | 6 | 5 | 1 | 83% | 🟡 |
+| 8 | profile/profile_password_test.dart | 4 | 4 | 0 | 100% | ✅ |
+| 9 | teams/team_management_test.dart | 6 | 1 | 5 | 17% | 🔴 |
+| 10 | setlists/setlist_crud_test.dart | 6 | 1 | 5 | 17% | 🔴 |
+| 11 | auth/invitation_acceptance_test.dart | 7 | — | — | — | ⏳ Pending |
+| 12 | calendar/calendar_availability_test.dart | 7 | — | — | — | ⏳ Pending (hung) |
 | 13 | chat/team_chat_test.dart | 4 | — | — | — | ⏳ Pending |
 | 14 | cross_feature/cross_feature_flows_test.dart | 4 | — | — | — | ⏳ Pending |
 | 15 | error_handling/error_states_test.dart | 4 | — | — | — | ⏳ Pending |
@@ -47,7 +47,8 @@
 - TBD — need to identify which test fails
 
 ### teams/team_management_test.dart — 5 failures
-- **Root cause:** NavigationHelper `_navigateViaFeatureCard` fails with `Bad state: No element` when trying to find and tap the "Equipos" feature card on the Home page. The card may not be scrolled into view, or the `.last` finder fails when the text appears only once (in stats, not in grid).
+- **Previous root cause:** NavigationHelper `_navigateViaFeatureCard` failed with `Bad state: No element` when trying to find and tap the "Equipos" feature card on the Home page. The card was below the fold, and the `.last` finder threw when the text appeared only once.
+- **Fix applied:** NavigationHelper refactored to use programmatic `appRouter.go()` instead of UI-based feature card tapping. This eliminates scroll/finder issues entirely. Needs re-run to confirm fix.
 - Tests 2 (create form) passes because it uses `registerUniqueAndLogin()` which doesn't need pre-seeded data.
 
 ## Backend Fixes Applied
@@ -69,7 +70,7 @@
 
 - **patrol_base.dart** — `TestEnvironment` with setup/tearDown, uses `$.pumpWidget` + `$.pump(3s)` instead of `pumpWidgetAndSettle`
 - **test_app.dart** — Forces `Locale('es')`, no-op WebSocket, no-op ConnectivityService, in-memory Drift DB
-- **NavigationHelper** — UI-based navigation via feature card taps on Home page
+- **NavigationHelper** — Programmatic navigation via `appRouter.go()` (replaced UI-based feature card tapping to avoid scroll/finder issues)
 - **FormHelper** — Tap before enterText, ensureVisible before tap
 - **WaitHelper** — All waits use `$.pump(Duration)`, never `pumpAndSettle`
 - **ApiSeedHelper** — Direct HTTP client for seeding data via real API
