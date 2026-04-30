@@ -1,150 +1,187 @@
 # E2E Test Suite Status — WorshipHub Flutter UI
 
-**Last Updated:** 2026-04-29 (end of day)
-**Framework:** Patrol 3.20.0 + patrol_cli 3.11.0
-**Backend:** Spring Boot with H2 in-memory (localhost:9090)
-**Device:** Android emulator API 34 (Patrol_API34)
+**Last Updated:** 2026-04-29 (end of session)
+**Branch:** `feat/e2e-automated-tests`
 
-## Best Results Achieved
+---
 
-| Metric | Value |
-|--------|-------|
-| Total tests written | ~85 across 15 files |
-| Best pass rate (stable files) | 36/39 = 92% |
-| Files fully green | 6 of 10 executed |
+## 🚀 NEXT SESSION: Migrate to Patrol 4.5.0 + Web
 
-## Results by File (Best Run)
+### What to do
+1. `cd worship_hub_ui`
+2. Change `pubspec.yaml`: `patrol: 3.20.0` → `patrol: ^4.5.0`
+3. `flutter pub get`
+4. `dart pub global activate patrol_cli 4.3.1`
+5. `npx playwright install` (for web support)
+6. Update `TestConfig.baseUrl` to `http://localhost:9090` (no more `10.0.2.2`)
+7. Follow migration guide: https://www.mintlify.com/leancodepl/patrol/migration/v3-to-v4
+8. Run: `patrol test -t integration_test/tests/auth/login_test.dart -d chrome`
 
-| # | Test File | Tests | Pass | Fail | Rate | Status |
-|---|-----------|-------|------|------|------|--------|
-| 1 | auth/login_test.dart | 6 | 6 | 0 | 100% | ✅ |
-| 2 | auth/church_registration_test.dart | 5 | 5 | 0 | 100% | ✅ |
-| 3 | songs/song_crud_test.dart | 8 | 7 | 1 | 87% | 🟡 |
-| 4 | songs/song_search_filter_test.dart | 2 | 2 | 0 | 100% | ✅ |
-| 5 | navigation/app_navigation_test.dart | 3 | 3 | 0 | 100% | ✅ |
-| 6 | notifications/notifications_test.dart | 5 | 4 | 1 | 80% | 🟡 |
-| 7 | categories/category_tag_test.dart | 6 | 5 | 1 | 83% | 🟡 |
-| 8 | profile/profile_password_test.dart | 4 | 4 | 0 | 100% | ✅ |
-| 9 | teams/team_management_test.dart | 6 | 1 | 5 | 17% | 🔴 |
-| 10 | setlists/setlist_crud_test.dart | 6 | 1 | 5 | 17% | 🔴 |
-| 11 | error_handling/error_states_test.dart | 4 | 1 | 3 | 25% | 🔴 |
-| 12 | auth/invitation_acceptance_test.dart | 7 | 0 | 7 | 0% | 🔴 |
-| 13 | calendar/calendar_availability_test.dart | 7 | — | — | — | ⏳ Hung |
-| 14 | chat/team_chat_test.dart | 4 | — | — | — | ⏳ Hung |
-| 15 | cross_feature/cross_feature_flows_test.dart | 4 | — | — | — | ⏳ Hung |
+### Why migrate
+- Patrol 4.0+ supports **web (Chrome)** via Playwright
+- Eliminates ALL Android orchestrator issues (hangs, lock files, 5min builds)
+- Chrome tests are instant — no emulator, no Gradle, no `10.0.2.2`
+- The SIGTERM Windows bug in patrol_mcp is also fixed in 4.x
 
-## Critical Findings & Root Causes
+---
 
-### 1. NavigationHelper — THE main blocker
-**Status:** Unsolved. Both approaches tried, neither works for all pages.
+## Project Structure
 
-**Approach A: `appRouter.go()` (programmatic)**
-- ✅ Works for: songs (7/8), login, registration, profile, categories, notifications
-- ❌ Fails for: teams, setlists — `appRouter` is a global singleton that may have stale redirect state between orchestrator test runs
-- Root cause: `appRouter` is `final GoRouter` created once at app startup. The orchestrator reinstalls the app between tests, but the Dart isolate may reuse the same `appRouter` instance with cached redirect results.
+```
+D:\Proyectos\WorshipHub\                    # Workspace root (multi-repo)
+├── worship_hub_api/                         # Kotlin Spring Boot backend (submodule)
+│   └── api/                                 # API module
+│       └── src/main/resources/
+│           └── application-h2.yml           # H2 test profile (port 9090)
+├── worship_hub_ui/                          # Flutter frontend (submodule)
+│   ├── lib/                                 # App source code
+│   │   ├── core/
+│   │   │   ├── router/app_router.dart       # GoRouter (global singleton `appRouter`)
+│   │   │   ├── l10n/                        # Localization (es + en)
+│   │   │   ├── storage/secure_storage_service.dart
+│   │   │   └── services/
+│   │   │       ├── websocket_service.dart   # Has forTesting() constructor
+│   │   │       └── connectivity_service.dart
+│   │   ├── presentation/features/           # 13 features (auth, songs, setlists, etc.)
+│   │   └── main.dart                        # WorshipManagerApp(locale: Locale?)
+│   ├── integration_test/                    # E2E tests live here
+│   │   ├── patrol_base.dart                 # TestEnvironment (setup/tearDown)
+│   │   ├── test_app.dart                    # createTestApp() — forces Locale('es')
+│   │   ├── config/test_config.dart          # Backend URL, timeouts
+│   │   ├── fixtures/                        # TestData, ApiEndpoints constants
+│   │   ├── helpers/                         # login, navigation, form, wait, assertion
+│   │   ├── mocks/                           # MockSecureStorage, ErrorSimulationInterceptor
+│   │   ├── seed/                            # ApiSeedHelper + domain seed helpers
+│   │   └── tests/                           # 15 test files organized by feature
+│   ├── android/app/
+│   │   ├── build.gradle.kts                 # PatrolJUnitRunner + Orchestrator config
+│   │   └── src/androidTest/.../MainActivityTest.java
+│   ├── pubspec.yaml                         # patrol: 3.20.0 (to be upgraded to 4.5.0)
+│   └── patrol.yaml                          # targets: integration_test/
+└── E2E_TEST_STATUS.md                       # This file
+```
 
-**Approach B: UI taps on feature cards**
-- ❌ Fails for ALL pages — the Home page feature grid is inside a `CustomScrollView` with slivers. Widgets below the fold don't exist in the widget tree until scrolled into view. `find.text('Equipos')` returns 0 results, `ensureVisible` fails, `scrollUntilVisible` fails with slivers.
+## Current Versions
+- Flutter: 3.35.1 (stable)
+- Dart: included with Flutter
+- patrol: 3.20.0 (pub) → **upgrade to 4.5.0**
+- patrol_cli: 3.11.0 (global) → **upgrade to 4.3.1**
+- Backend: Spring Boot 3.x + Kotlin + H2 on port 9090
 
-**Next step:** Try a hybrid: use `appRouter.go()` as default, but for teams/setlists that fail, navigate via Home page by first scrolling the CustomScrollView with `tester.drag()` to reveal the grid, then tapping.
+## Best Test Results (on Android emulator, Patrol 3.20.0)
 
-### 2. Orchestrator hangs (affects 3 files)
-Calendar (7 tests), chat (4 tests), and cross_feature (4 tests) consistently hang during execution. The Android Test Orchestrator on Windows with Gradle 8.14 has intermittent lock file issues (`utp.0.log.lck`).
+| File | Tests | Pass | Fail | Notes |
+|------|-------|------|------|-------|
+| auth/login_test.dart | 6 | 6 | 0 | ✅ Solid |
+| auth/church_registration_test.dart | 5 | 5 | 0 | ✅ Solid |
+| songs/song_crud_test.dart | 8 | 7 | 1 | Edit FAB timeout |
+| songs/song_search_filter_test.dart | 2 | 2 | 0 | ✅ Missing 2 filter tests |
+| navigation/app_navigation_test.dart | 3 | 3 | 0 | ✅ Solid |
+| notifications/notifications_test.dart | 5 | 4 | 1 | 1 unknown failure |
+| categories/category_tag_test.dart | 6 | 5 | 1 | 1 unknown failure |
+| profile/profile_password_test.dart | 4 | 4 | 0 | ✅ Solid |
+| teams/team_management_test.dart | 6 | 1 | 5 | NavigationHelper issue |
+| setlists/setlist_crud_test.dart | 6 | 1 | 5 | NavigationHelper issue |
+| error_handling/error_states_test.dart | 4 | 1 | 3 | assertion_helper issue |
+| auth/invitation_acceptance_test.dart | 7 | 0 | 7 | _authToken null |
+| calendar/calendar_availability_test.dart | 7 | — | — | Orchestrator hung |
+| chat/team_chat_test.dart | 4 | — | — | Orchestrator hung |
+| cross_feature/cross_feature_flows_test.dart | 4 | — | — | Orchestrator hung |
 
-**Workaround:** `gradlew --stop` + delete `build/app/outputs/androidTest-results/` before each run. Works ~80% of the time.
+**Stable files: 36/39 = 92%**
 
-**Next step:** Consider splitting large test files into smaller ones (2-3 tests per file) to reduce orchestrator load.
+## Root Causes of Failures
 
-### 3. Invitation tests — `_authToken` null
-`registerUniqueAndLogin()` calls `seedHelper.registerChurch()` + `loginViaUI()` but does NOT call `seedHelper.login()`. So `seedHelper._authToken` stays null. When tests then call `seedHelper.sendInvitation()`, it asserts `_authToken != null`.
+### 1. NavigationHelper — main blocker for teams/setlists
+- `appRouter.go()` works for songs but not teams/setlists
+- `appRouter` is a `final GoRouter` singleton — may have stale redirect state between orchestrator runs
+- UI-based navigation (tap feature cards) fails because Home page grid is in a sliver below the fold — widgets don't exist in tree until scrolled
+- **After Patrol 4 + web migration**, this may resolve itself (no orchestrator = no stale state)
 
-**Fix identified:** Add `seedHelper.login()` to `registerUniqueAndLogin()`. BUT this caused a regression in song tests (0/8) — possibly because the API login creates a session that conflicts with the subsequent UI login.
+### 2. Invitation tests — `_authToken` null
+- `registerUniqueAndLogin()` does `registerChurch()` + `loginViaUI()` but NOT `seedHelper.login()`
+- So `seedHelper._authToken` stays null → `sendInvitation()` asserts and fails
+- **Fix:** Add `seedHelper.login()` in invitation tests that need API calls after login
+- **WARNING:** Adding it to `registerUniqueAndLogin()` globally caused regression (0/8 songs). Only add where needed.
 
-**Next step:** Instead of adding `seedHelper.login()` to `registerUniqueAndLogin()`, add it only in the invitation tests that need it (tests 1-3 that use `sendInvitation` after `registerUniqueAndLogin`).
+### 3. Orchestrator hangs (Android-only)
+- Calendar (7), chat (4), cross_feature (4) consistently hang
+- Gradle 8.14 lock file issue (`utp.0.log.lck`)
+- **Fix:** Migrate to Patrol 4 + web eliminates this entirely
 
-### 4. Error handling tests — assertion at line 175
-`GetIt.instance<Dio>()` works (1/4 pass), but 3 tests fail. The `ErrorSimulationInterceptor` may not be intercepting correctly, or the app's error UI doesn't match the expected text.
-
-**Next step:** Run with verbose to identify which 3 tests fail and why.
-
-### 5. Song edit FAB — async role loading (1 test)
-`SongDetailPage` shows the edit FAB only after `_loadUserRole()` completes (async SharedPreferences read). The `_waitForEditFab` polling may timeout.
-
-**Next step:** Increase timeout from 10s to 20s.
+### 4. Song edit FAB — async role loading
+- `_loadUserRole()` reads SharedPreferences async → FAB appears late
+- `_waitForEditFab` polls for 10s, may need 20s
+- **Fix:** Increase timeout
 
 ## Backend Fixes Applied (committed)
 
-1. **NoOpEmailService.kt** — No-op email for H2 profile (`@Profile("h2") @Primary`)
-2. **ChurchRegistrationService.kt** — Auto-verify/activate users in H2 profile
-3. **application-h2.yml** — Fixed mail username to valid email
+| File | Change |
+|------|--------|
+| `NoOpEmailService.kt` | `@Profile("h2") @Primary` — no-op email for tests |
+| `ChurchRegistrationService.kt` | Auto-verify + activate users when H2 profile active |
+| `application-h2.yml` | Fixed `spring.mail.username` to valid email |
 
 ## App Fixes Applied (committed)
 
-1. **ConnectionStatusIndicator** — `Stream.periodic` → `Stream.value` (eliminates persistent timer)
-2. **LoginPage shimmer** — Removed `controller.repeat()` (eliminates persistent animation)
-3. **HomePage shimmer** — Removed `controller.repeat()` (eliminates persistent animation)
-4. **WebSocketService** — Added `forTesting()` constructor; test uses `_NoOpWebSocketService`
-5. **ConnectivityService** — Test uses `_TestConnectivityService` without periodic timers
-6. **WorshipManagerApp** — Added optional `locale` parameter; tests force `Locale('es')`
+| File | Change |
+|------|--------|
+| `ConnectionStatusIndicator` | `Stream.periodic` → `Stream.value` |
+| `LoginPage` | Removed `controller.repeat()` shimmer |
+| `HomePage` | Removed `controller.repeat()` shimmer |
+| `WebSocketService` | Added `forTesting()` constructor |
+| `WorshipManagerApp` | Added `locale` parameter |
+| `test_app.dart` | `_NoOpWebSocketService`, `_TestConnectivityService`, `Locale('es')` |
 
-## Test Infrastructure (committed)
+## Key Patterns (MUST follow in all tests)
 
-| File | Purpose |
-|------|---------|
-| `patrol_base.dart` | `TestEnvironment` — setup/tearDown, `$.pumpWidget` + `$.pump(3s)` |
-| `test_app.dart` | Forces `Locale('es')`, no-op WebSocket/Connectivity, in-memory Drift |
-| `navigation_helper.dart` | `appRouter.go()` for navigation (needs hybrid fix for teams/setlists) |
-| `login_helper.dart` | `loginViaUI()`, `registerUniqueAndLogin()` |
-| `form_helper.dart` | `fillField()` with tap-before-enterText pattern |
-| `wait_helper.dart` | All waits use `$.pump(Duration)`, never `pumpAndSettle` |
-| `assertion_helper.dart` | `expectTextVisible`, `expectSnackBar`, etc. |
-| `api_seed_helper.dart` | Direct HTTP to backend for seeding test data |
-| `MainActivityTest.java` | Android test runner for Patrol |
-| `build.gradle.kts` | PatrolJUnitRunner + Android Test Orchestrator |
-| `patrol.yaml` | Patrol CLI config (targets: `integration_test/`) |
+1. **NEVER `$.pumpAndSettle()`** — persistent timers. Always `$.pump(Duration(...))`
+2. **Tap before `enterText`** — flutter_animate delays EditableText
+3. **`ensureVisible` before tap** — off-screen buttons
+4. **Extra pump after navigation** — 2s for flutter_animate on destination page
+5. **Unique data per test** — timestamps in emails to avoid H2 collisions
+6. **`gradlew --stop` before each run** — Gradle lock file workaround (Android only)
+7. **NEVER `Stop-Process -Name java`** — kills the backend
 
-## Key Patterns Learned
-
-1. **NEVER use `$.pumpAndSettle()`** — app has persistent timers (animations, connectivity). Always use `$.pump(Duration(...))`.
-2. **Tap fields before `enterText`** — flutter_animate delays EditableText creation. Tap to focus first.
-3. **`ensureVisible` before tapping** off-screen buttons.
-4. **Extra pump after navigation** — `$.pump(Duration(seconds: 2))` for flutter_animate animations on destination page.
-5. **Unique data per test** — timestamps in emails/names to avoid H2 collisions.
-6. **`gradlew --stop`** before each run — prevents Gradle lock file issues.
-7. **NEVER `Stop-Process -Name java`** — kills the backend along with Gradle.
-
-## How to Run
+## How to Start Backend
 
 ```powershell
-# From worship_hub_ui/ directory
-# Prerequisites: backend running with H2, emulator running
+cd worship_hub_api
+./gradlew :api:bootRun --args="--spring.profiles.active=h2"
+# Runs on localhost:9090, H2 in-memory, auto-verify users, no-op email
+```
 
+## How to Run Tests (current — Android)
+
+```powershell
+cd worship_hub_ui
 $env:PATH = "$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:PATH = "$env:ANDROID_HOME\platform-tools;$env:PATH"
 
-# IMPORTANT: Clean before each run
 .\android\gradlew.bat --stop
 Remove-Item -Recurse -Force "build\app\outputs\androidTest-results" -ErrorAction SilentlyContinue
 Remove-Item -Recurse -Force "build\app\reports\androidTests" -ErrorAction SilentlyContinue
 
-# Run one file at a time
 patrol test -t integration_test/tests/auth/login_test.dart -d emulator-5554
 ```
 
-## Priority for Next Session
+## How to Run Tests (after migration — Web)
 
-1. **MIGRATE TO PATROL 4.x + WEB** (top priority)
-   - Upgrade `patrol: 3.20.0` → `patrol: ^4.1.0` in pubspec.yaml
-   - Upgrade `patrol_cli: 3.11.0` → `patrol_cli: 4.3.1` globally
-   - Install Playwright: `npx playwright install`
-   - Update `TestConfig.baseUrl` to use `localhost:9090` (no more `10.0.2.2`)
-   - Migrate `patrolTest` syntax to Patrol 4.x API (check migration guide)
-   - Run tests with `patrol test -d chrome`
-   - This eliminates: Android orchestrator hangs, Gradle lock files, emulator dependency, `10.0.2.2` mapping
-   - Migration guide: https://www.mintlify.com/leancodepl/patrol/migration/v3-to-v4
+```powershell
+cd worship_hub_ui
+patrol test -t integration_test/tests/auth/login_test.dart -d chrome
+```
 
-2. **Fix NavigationHelper** after migration (may resolve itself with web)
-3. **Fix invitation tests** — add `seedHelper.login()` only where needed
-4. **Fix remaining test failures** with faster feedback loop (web is instant vs 5min Android builds)
-5. **Add missing tests** — song_search_filter (2 missing), complete coverage
+## Spec Files
+
+- `.kiro/specs/flutter-e2e-ui-tests/requirements.md` — 16 requirements
+- `.kiro/specs/flutter-e2e-ui-tests/design.md` — Architecture, components, patterns
+- `.kiro/specs/flutter-e2e-ui-tests/tasks.md` — All tasks marked complete (code written)
+
+## Git State
+
+- Branch: `feat/e2e-automated-tests`
+- worship_hub_ui submodule: 7 commits ahead of origin/master
+- Parent repo: multiple commits on the branch
+- All changes committed, nothing pending
