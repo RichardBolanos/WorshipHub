@@ -135,12 +135,21 @@
 - **Fix:** Construct `AvailabilityDto` from the request data (date, reason) + the returned `availabilityId`, instead of parsing the response as a full DTO.
 - **File fixed:** `availability_remote_data_source.dart`
 
-### 12. Calendar UI doesn't paint unavailable days in orange (OPEN — frontend bug)
+### 12. Calendar UI doesn't paint unavailable days in orange (OPEN — frontend BLoC race condition)
 - **Symptom:** Day 2 shows green (available) even though `GET /availability/me` returns an unavailability record for that date.
 - **Evidence:** Playwright logs confirm `availability/me` returns `[{id: ..., unavailableDate: 2026-05-02, reason: "Pre-seeded..."}]` but the calendar cell for day 2 is green, not orange.
-- **Root cause:** Unknown — needs investigation. The `AvailabilityBloc` receives the data, the `calendar_page` has `_unavailabilityMap()` that maps dates to availabilities, and `_buildDayCell()` checks `isUnavailable = unavailMap.containsKey(normalized)`. Possible issues: (1) date normalization mismatch between `DateTime` from API (date-only string) and `_normalizeDate()`, (2) the BLoC state isn't `AvailabilityLoaded` when the calendar renders, (3) the `AvailabilityDto.fromJson` for GET response has a parsing issue.
+- **Root cause:** **Race condition in `AvailabilityBloc`**. On calendar load, `calendar_page.dart` dispatches two events simultaneously:
+  ```dart
+  bloc.add(LoadServiceEventsForMonth(month: now.month, year: now.year));
+  bloc.add(const LoadMyAvailability());
+  ```
+  Both handlers try to preserve the other's data from `previousState`, but they overwrite each other:
+  - `_onLoadServiceEventsForMonth` completes first → emits `AvailabilityLoaded(availabilities: [], serviceEvents: [service])` (availabilities empty because previousState was `AvailabilityInitial`)
+  - `_onLoadMyAvailability` completes second → emits `AvailabilityLoaded(availabilities: [unavail], serviceEvents: previousState.serviceEvents)` — but `previousState` is `AvailabilityLoading` (emitted by itself), NOT the `AvailabilityLoaded` from step 1. So `serviceEvents` becomes `[]`.
+  - Result: the final state has either availabilities OR serviceEvents, never both together.
+- **Fix (deber ser):** Create a single `LoadCalendarData` event that fetches both service events AND availability in one handler, then emits a single `AvailabilityLoaded` with both datasets. This eliminates the race condition entirely.
 - **Impact:** Test 6 (remove unavailability) is a **false positive** — it passes because it doesn't verify the initial orange state.
-- **Next steps:** Debug `_unavailabilityMap()` and `_buildDayCell()` to find why the unavailability record doesn't result in an orange cell.
+- **Files to fix:** `availability_bloc.dart` (merge the two load handlers), `availability_event.dart` (add `LoadCalendarData` event), `calendar_page.dart` (dispatch single event)
 
 ---
 
