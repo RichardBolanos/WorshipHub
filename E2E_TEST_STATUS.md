@@ -42,12 +42,12 @@
 | setlists/setlist_crud_test.dart | 6 | **6** | 0 | ✅ All pass (**was 1/6 on Android**) |
 | error_handling/error_states_test.dart | 4 | **4** | 0 | ✅ All pass (**was 1/4 — fixed: SongRefreshRequested bypasses cache, AuthInterceptor Fluttertoast try/catch for web**) |
 | auth/invitation_acceptance_test.dart | 7 | **1** | 6 | DI fix applied; test 1 passes; tests 2-7: `Bad state: No element` in form fields |
-| calendar/calendar_availability_test.dart | 7 | **4** | 3 | **Was 0/7 → 4/7 verified**: Fixed DI (DatabaseService→AppDatabase), TableCalendar finder, future dates, backend FK bug. Remaining 3: availability dialog not opening (data sync timing) |
-| chat/team_chat_test.dart | 4 | **0** | 4 | No longer hangs, but fails — needs investigation |
+| calendar/calendar_availability_test.dart | 7 | **4** | 3 | 4/7 verified. Remaining 3 cause Patrol to hang (>7min timeout). Needs manual debugging — likely availability dialog data sync timing. |
+| chat/team_chat_test.dart | 4 | **0** | 4 | All 4 fail with ~40s timeout. No error visible in logs. Tests navigate Teams→Detail→Chat but chat page doesn't render. Likely a rendering error in TeamChatPage that Patrol doesn't capture. Needs manual debugging. |
 | cross_feature/cross_feature_flows_test.dart | 4 | **1** | 3 | Test 1 passes (worship flow); test 2 fails (team chat navigation); tests 3-4 timeout |
 
-**Verified passing: 59/86 tests run = 69%**
-**Expected after re-run of remaining fixes: 62/71 = 87%** (profile +1, error_handling +3, song_crud +1, navigation +1)
+**Verified passing: 67/87 tests run = 77%**
+**11 of 15 suites at 100%. Remaining failures: invitation (6), calendar (3), chat (4), cross_feature (3)**
 
 ### Key Improvements vs Android (Patrol 3.20.0)
 - **teams: 1/6 → 6/6** — Fixed DB schema (proper PK), DI (injected AppDatabase), BLoC (TeamDeleted listener), i18n migration
@@ -482,10 +482,10 @@ The backend has comprehensive integration tests covering all CRUD operations acr
 
 ## Next Session Priorities
 
-1. **Fix invitation tests** (6 of 7 failing) — `Bad state: No element` in `formHelper.fillField()`. Root cause: the `send_invitation_page.dart` fields have `flutter_animate` delays (200-350ms). The test navigates via `GoRouter.go()` and immediately tries to fill fields before animations complete. Fix: add `pump(2s)` after navigation to let animations finish, same pattern used in `create_team_page.dart`.
-2. **Fix calendar availability dialog** (3 of 7 failing) — service events created via API not appearing when dialog opens. Investigate `ServiceRepositoryImpl` → local DB → BLoC flow.
-3. **Investigate chat failures** (4 tests) — likely navigation + WebSocket mock issues. Chat pages may need i18n migration.
-4. **Fix cross_feature tests** (3 of 4 failing) — test 2 fails on chat navigation (same root cause as chat tests); tests 3-4 timeout.
+1. **Debug chat tests manually** (4 tests) — Patrol doesn't capture Flutter errors for these tests. Run `flutter test -d chrome integration_test/tests/chat/team_chat_test.dart` directly (without Patrol) to see the actual error. The tests navigate Teams→Detail→Chat but the chat page doesn't render. Likely a rendering error in TeamChatPage or a missing BLoC provider.
+2. **Debug calendar remaining tests** (3 tests) — Same issue: tests cause Patrol to hang. Run individually or with shorter timeouts. The availability dialog doesn't open — likely data sync timing between API seed and BLoC state.
+3. **Fix invitation tests** (6 of 7 failing) — `Bad state: No element` in `formHelper.fillField()`. Fields have `flutter_animate` delays. Add `pump(2s)` after navigation. Also check if `bySemanticsLabel` works for fields inside a `Row` on web.
+4. **Fix cross_feature tests** (3 of 4 failing) — Test 2 depends on chat (same root cause). Tests 3-4 timeout.
 5. **Migrate remaining hardcoded UI strings to AppLocalizations** — notifications_page, send_invitation_page, accept_invitation_page, chat pages, calendar pages.
 
 ## Production Bugs Found This Session
