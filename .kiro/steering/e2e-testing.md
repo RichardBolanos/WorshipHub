@@ -112,3 +112,17 @@ patrol test -t integration_test/tests/teams/team_management_test.dart -d chrome 
 ```
 
 After a failure, read `test_output.log` first — it has everything needed to diagnose the issue.
+
+### 13. Debugging failed tests with Playwright report
+
+When `patrol test` fails, the error details are only visible in the Playwright HTML report — NOT in the terminal output or the `.md` files in `playwright-report/data/`.
+
+**Workflow:**
+1. Kiro executes `patrol test` and captures the result
+2. If tests fail, the user opens `worship_hub_ui/playwright-report/index.html` via Live Server (http://127.0.0.1:5500/worship_hub_ui/playwright-report/index.html)
+3. The user copies the relevant error logs from the report and pastes them into the chat
+4. Kiro analyzes the logs and fixes the code
+
+**Why this is necessary:** Patrol web mode does not capture Flutter's error output in the terminal. The `PATROL_LOG` entries and Flutter exception stack traces are only visible in the Playwright report's "Stdout" tab for each failed test. The `.md` files in `playwright-report/data/` only contain a generic "Test finished" page snapshot — they do NOT contain the actual error.
+
+**Example:** This workflow found the `TeamChatPage.dispose()` bug — `context.read<ChatBloc>()` on a deactivated widget — which was completely invisible in terminal output but clearly shown in the Playwright report's stdout.

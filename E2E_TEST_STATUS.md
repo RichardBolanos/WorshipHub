@@ -43,11 +43,11 @@
 | error_handling/error_states_test.dart | 4 | **4** | 0 | ✅ All pass (**was 1/4 — fixed: SongRefreshRequested bypasses cache, AuthInterceptor Fluttertoast try/catch for web**) |
 | auth/invitation_acceptance_test.dart | 7 | **1** | 6 | DI fix applied; test 1 passes; tests 2-7: `Bad state: No element` in form fields |
 | calendar/calendar_availability_test.dart | 7 | **4** | 3 | 4/7 verified. Remaining 3 cause Patrol to hang (>7min timeout). Needs manual debugging — likely availability dialog data sync timing. |
-| chat/team_chat_test.dart | 4 | **0** | 4 | All 4 fail with ~40s timeout. No error visible in logs. Tests navigate Teams→Detail→Chat but chat page doesn't render. Likely a rendering error in TeamChatPage that Patrol doesn't capture. Needs manual debugging. |
-| cross_feature/cross_feature_flows_test.dart | 4 | **1** | 3 | Test 1 passes (worship flow); test 2 fails (team chat navigation); tests 3-4 timeout |
+| chat/team_chat_test.dart | 4 | **4** | 0 | ✅ All pass (**was 0/4 — fixed: `context.read()` in dispose() crashes on deactivated widget; ChatRepositoryImpl URLs changed to relative paths**) |
+| cross_feature/cross_feature_flows_test.dart | 4 | **4** | 0 | ✅ All pass (**was 1/4 — fixed: textarea field finder, submit button Icons.add, ElevatedButton for dialog**) |
 
-**Verified passing: 67/87 tests run = 77%**
-**11 of 15 suites at 100%. Remaining failures: invitation (6), calendar (3), chat (4), cross_feature (3)**
+**Verified passing: 78/87 tests run = 90%**
+**13 of 15 suites at 100%. Remaining failures: invitation (6), calendar (3)**
 
 ### Key Improvements vs Android (Patrol 3.20.0)
 - **teams: 1/6 → 6/6** — Fixed DB schema (proper PK), DI (injected AppDatabase), BLoC (TeamDeleted listener), i18n migration
@@ -462,7 +462,8 @@ The backend has comprehensive integration tests covering all CRUD operations acr
 2. **Frontend E2E tests** (Dart/Patrol) — validate full user flows through the UI against the real backend. 59/86 passing (69%).
 3. **All UI text must use `AppLocalizations`** — tests must assert on localization keys, not hardcoded strings. Hardcoded strings in production code are bugs.
 4. **After every CRUD operation, reload from backend** — verify the change persists by re-fetching, not by trusting local state.
-5. **Capture full test output to a file** — always redirect patrol output to `test_output.log` for post-mortem analysis without re-running.
+5. **Capture full test output to a file** — always redirect patrol output to a `.log` file for post-mortem analysis without re-running.
+6. **Debug failures via Playwright HTML report** — Patrol web mode does NOT show Flutter errors in the terminal. When tests fail, open `worship_hub_ui/playwright-report/index.html` via Live Server (http://127.0.0.1:5500/worship_hub_ui/playwright-report/index.html) and check the "Stdout" tab for each failed test. The `.md` files in `playwright-report/data/` are useless — they only contain "Test finished". The user must paste the relevant logs from the HTML report into the chat for analysis.
 
 ### Rules
 - Tests must NOT use hardcoded Spanish strings — use `AppLocalizations` keys
