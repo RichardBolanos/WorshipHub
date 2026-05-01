@@ -1,0 +1,15 @@
+pubspec.yaml doesn't exist: D:\Proyectos\WorshipHub\pubspec.yaml
+FileSystemException: pubspec.yaml doesn't exist, path = 'D:\Proyectos\WorshipHub\pubspec.yaml'
+#0      PubspecReader.read (package:patrol_cli/src/pubspec_reader.dart:141:7)
+#1      TestCommand.run (package:patrol_cli/src/commands/test.dart:103:35)
+#2      CommandRunner.runCommand (package:args/command_runner.dart:212:27)
+#3      CompletionCommandRunner.runCommand (package:cli_completion/src/command_runner/completion_command_runner.dart:89:18)
+#4      PatrolCommandRunner.runCommand (package:patrol_cli/src/runner/patrol_command_runner.dart:394:30)
+<asynchronous suspension>
+#5      PatrolCommandRunner.run (package:patrol_cli/src/runner/patrol_command_runner.dart:332:18)
+<asynchronous suspension>
+#6      patrolCommandRunner (package:patrol_cli/src/runner/patrol_command_runner.dart:81:20)
+<asynchronous suspension>
+#7      main (file:///C:/Users/Richa/AppData/Local/Pub/Cache/hosted/pub.dev/patrol_cli-4.3.1/bin/main.dart:6:20)
+<asynchronous suspension>
+

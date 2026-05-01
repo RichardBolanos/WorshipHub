@@ -1,6 +1,6 @@
 # E2E Test Suite Status — WorshipHub Flutter UI
 
-**Last Updated:** 2026-04-30 (session 4 — notifications fix, invitation DI fix, cross_feature first run)
+**Last Updated:** 2026-05-01 (session 5 — AuthInterceptor User-Id fix → reverted, backend SecurityContext refactor, CORS fix, DatabaseCleaner fix, AvailabilityDto fix, calendar test fixes)
 **Branch:** `feat/e2e-automated-tests`
 
 ---
@@ -41,8 +41,8 @@
 | teams/team_management_test.dart | 6 | **6** | 0 | ✅ All pass (**was 1/6 — fixed DB, DI, BLoC, i18n**) |
 | setlists/setlist_crud_test.dart | 6 | **6** | 0 | ✅ All pass (**was 1/6 on Android**) |
 | error_handling/error_states_test.dart | 4 | **4** | 0 | ✅ All pass (**was 1/4 — fixed: SongRefreshRequested bypasses cache, AuthInterceptor Fluttertoast try/catch for web**) |
-| auth/invitation_acceptance_test.dart | 7 | **1** | 6 | DI fix applied; test 1 passes; tests 2-7: `Bad state: No element` in form fields |
-| calendar/calendar_availability_test.dart | 7 | **4** | 3 | 4/7 verified. Remaining 3 cause Patrol to hang (>7min timeout). Needs manual debugging — likely availability dialog data sync timing. |
+| auth/invitation_acceptance_test.dart | 7 | **1** | 6 | DI fix applied; test 1 passes; tests 2-7: fixed `bySemanticsLabel` → `byType(TextFormField).at(index)` for Row fields + token/password fields. Needs re-run. |
+| calendar/calendar_availability_test.dart | 7 | **6** | 1 | Tests 1-5,7 pass. Test 6 (remove unavailability): **FALSE POSITIVE** — backend returns unavailability correctly but calendar UI doesn't paint day orange. Test passes because it doesn't verify initial orange state. See "Remaining Bug" below. |
 | chat/team_chat_test.dart | 4 | **4** | 0 | ✅ All pass (**was 0/4 — fixed: `context.read()` in dispose() crashes on deactivated widget; ChatRepositoryImpl URLs changed to relative paths**) |
 | cross_feature/cross_feature_flows_test.dart | 4 | **4** | 0 | ✅ All pass (**was 1/4 — fixed: textarea field finder, submit button Icons.add, ElevatedButton for dialog**) |
 
@@ -115,6 +115,32 @@
 - **Symptom:** Navigation back button test (Req 14.3) times out
 - **Root cause:** `NavigationHelper._navigateTo()` uses `appRouter.go()` which replaces the navigation stack. `goBack()` tries `appRouter.canPop()` (returns false), then looks for `Icons.arrow_back` (not present on all pages), then gives up.
 - **Fix:** Added `appRouter.go('/home')` as last-resort fallback in `goBack()` when neither pop nor back button is available.
+
+### 9. AuthInterceptor missing User-Id header (FIXED differently — backend refactored)
+- **Symptom:** `GET /api/v1/services/availability/me` returns HTTP 500.
+- **Root cause:** The `AvailabilityController` used `@RequestHeader("User-Id")` but the frontend never sent that header. This was a **backend design bug** — all other controllers use `SecurityContext.getCurrentUserId()` which extracts the userId from the JWT `sub` claim.
+- **Fix:** Refactored `AvailabilityController` to inject `SecurityContext` and call `getCurrentUserId()` instead of requiring `@RequestHeader("User-Id")`. This is consistent with `SongController`, `CategoryController`, etc.
+- **Files fixed:** `AvailabilityController.kt`
+- **NOT fixed by:** Adding `User-Id` to `AuthInterceptor` (was attempted and reverted — duplicating JWT info in a custom header is insecure and unnecessary).
+
+### 10. DatabaseCleaner using static DatabaseService.database (FIXED — production bug)
+- **Symptom:** `Bad state: Database not initialized` error on every test, showing a SnackBar that blocked UI interactions.
+- **Root cause:** `DatabaseCleaner` used `DatabaseService.database` (static singleton) but in tests the DB is injected via GetIt as `AppDatabase`. `DatabaseService.initialize()` is never called in tests.
+- **Fix:** Changed `DatabaseCleaner` to use `GetIt.instance<AppDatabase>()` with `isRegistered` guard. Same DI pattern as all repositories.
+- **File fixed:** `database_cleaner.dart`
+
+### 11. AvailabilityRemoteDataSource.markUnavailable() crashes on response parsing (FIXED — production bug)
+- **Symptom:** `TypeError: null: type 'Null' is not a subtype of type 'String'` after marking unavailable.
+- **Root cause:** POST `/api/v1/services/availability/unavailable` returns `{availabilityId, message}` but `markUnavailable()` tried to parse it as `AvailabilityDto.fromJson()` which expects `{id, unavailableDate, createdAt}`.
+- **Fix:** Construct `AvailabilityDto` from the request data (date, reason) + the returned `availabilityId`, instead of parsing the response as a full DTO.
+- **File fixed:** `availability_remote_data_source.dart`
+
+### 12. Calendar UI doesn't paint unavailable days in orange (OPEN — frontend bug)
+- **Symptom:** Day 2 shows green (available) even though `GET /availability/me` returns an unavailability record for that date.
+- **Evidence:** Playwright logs confirm `availability/me` returns `[{id: ..., unavailableDate: 2026-05-02, reason: "Pre-seeded..."}]` but the calendar cell for day 2 is green, not orange.
+- **Root cause:** Unknown — needs investigation. The `AvailabilityBloc` receives the data, the `calendar_page` has `_unavailabilityMap()` that maps dates to availabilities, and `_buildDayCell()` checks `isUnavailable = unavailMap.containsKey(normalized)`. Possible issues: (1) date normalization mismatch between `DateTime` from API (date-only string) and `_normalizeDate()`, (2) the BLoC state isn't `AvailabilityLoaded` when the calendar renders, (3) the `AvailabilityDto.fromJson` for GET response has a parsing issue.
+- **Impact:** Test 6 (remove unavailability) is a **false positive** — it passes because it doesn't verify the initial orange state.
+- **Next steps:** Debug `_unavailabilityMap()` and `_buildDayCell()` to find why the unavailability record doesn't result in an orange cell.
 
 ---
 
@@ -314,6 +340,21 @@ D:\Proyectos\WorshipHub\                    # Workspace root (multi-repo)
 |------|--------|
 | `error_states_test.dart` | Req 16.4 (401 auth redirect): increased polling timeout 15s → 25s (async `clearAll()` + go_router redirect is slow); added alternative login page detection (`'Iniciar Sesión'` + `bySemanticsLabel('Email')` alongside `'Bienvenido de vuelta'`); assertion now accepts either login redirect or error state after 401 — more resilient to timing variations |
 
+### This session (2026-05-01 — session 5: backend SecurityContext refactor, calendar fixes, production bugs)
+| File | Change |
+|------|--------|
+| `AvailabilityController.kt` | **Backend refactor**: Replaced `@RequestHeader("User-Id")` with `SecurityContext.getCurrentUserId()` on all 3 endpoints (GET /me, POST /unavailable, DELETE /{id}). This is the correct pattern used by all other controllers (SongController, CategoryController, etc.). The userId is extracted from the JWT `sub` claim, not from a custom header. |
+| `auth_interceptor.dart` | Added then **reverted** `User-Id` header. The backend now extracts userId from JWT, so no custom header is needed. |
+| `CorsConfig.kt` | Added then **reverted** `User-Id` in `allowedHeaders`. No longer needed since the header was removed. |
+| `service_locator.dart` | **Interceptor order fix**: `AuthInterceptor` now added BEFORE `LogInterceptor` so logs show actual headers sent to server |
+| `test_app.dart` | Same interceptor order fix |
+| `database_cleaner.dart` | **Production fix**: Uses `GetIt.instance<AppDatabase>()` instead of `DatabaseService.database` static getter. This is the same DI pattern used by all repositories. Fixes "Database not initialized" crash in tests. |
+| `database_service.dart` | Reverted `isInitialized` getter — no longer needed after DatabaseCleaner fix |
+| `availability_remote_data_source.dart` | **Production bug fix**: `markUnavailable()` POST response returns `{availabilityId, message}` not a full availability record. Changed from `AvailabilityDto.fromJson(response.data)` (which crashed with `Null is not a subtype of String`) to constructing the DTO from request data + returned ID. |
+| `calendar_availability_test.dart` | Tests 4-6: Rewrote to tap day directly (triggers `_onDaySelected` which auto-opens dialog) instead of `Icons.event_busy` button (blocked by Navigator overlay). Used `.last` for "No disponible"/"Disponible" text (duplicated in calendar legend). Test 6 seeds unavailability via API. |
+| `api_seed_helper.dart` | Added `markUnavailable()` and `getMyAvailability()` methods for calendar test seeding |
+| `invitation_acceptance_test.dart` | Tests 2-3: `byType(TextFormField).at(index)` for Row fields. Tests 4-7: `byType(TextFormField).first` for token/password fields. |
+
 ---
 
 ## Key Patterns (MUST follow in all tests)
@@ -475,6 +516,7 @@ The backend has comprehensive integration tests covering all CRUD operations acr
 - When an E2E test fails, check the full chain: backend API → frontend repository → local DB sync → BLoC state → UI render
 - `bySemanticsLabel` does NOT work for `DropdownButtonFormField` on web — use `expectTextVisible` on the label text instead
 - `bySemanticsLabel` does NOT work for `TextFormField` with `maxLines > 1` on web (renders as `<textarea>`) — use `find.byType(TextFormField).at(index)` instead
+- `bySemanticsLabel` does NOT work reliably for `TextFormField` inside a `Row` with `flutter_animate` on web — use `find.byType(TextFormField).at(index)` instead. Also fails when the same label text appears as both a `Text` title and a `TextFormField` label (e.g., "Código de Invitación")
 - `expectTextContaining` is accent-sensitive — `'notificacion'` does NOT match `'notificación'`
 - All use cases referenced by BLoCs must be registered in both `service_locator.dart` AND `test_app.dart` — missing registrations cause `GetIt: Object/factory not registered` at runtime
 - `DropdownButtonFormField` uses `value:` not `initialValue:` for the selected value
@@ -483,10 +525,10 @@ The backend has comprehensive integration tests covering all CRUD operations acr
 
 ## Next Session Priorities
 
-1. **Debug chat tests manually** (4 tests) — Patrol doesn't capture Flutter errors for these tests. Run `flutter test -d chrome integration_test/tests/chat/team_chat_test.dart` directly (without Patrol) to see the actual error. The tests navigate Teams→Detail→Chat but the chat page doesn't render. Likely a rendering error in TeamChatPage or a missing BLoC provider.
-2. **Debug calendar remaining tests** (3 tests) — Same issue: tests cause Patrol to hang. Run individually or with shorter timeouts. The availability dialog doesn't open — likely data sync timing between API seed and BLoC state.
-3. **Fix invitation tests** (6 of 7 failing) — `Bad state: No element` in `formHelper.fillField()`. Fields have `flutter_animate` delays. Add `pump(2s)` after navigation. Also check if `bySemanticsLabel` works for fields inside a `Row` on web.
-4. **Fix cross_feature tests** (3 of 4 failing) — Test 2 depends on chat (same root cause). Tests 3-4 timeout.
+1. **Fix calendar UI orange color bug** (Bug #12) — `GET /availability/me` returns data but calendar doesn't paint day orange. Debug `_unavailabilityMap()` and `_buildDayCell()` in `calendar_page.dart`. Once fixed, test 6 will properly verify the naranja → verde transition.
+2. **Re-run all calendar tests** (7 tests) — Currently 6/7 pass (test 6 is false positive). After fixing Bug #12, expect 7/7.
+3. **Run invitation acceptance tests** (7 tests) — Field finder fixes applied but not yet re-run. Expected: 7/7.
+4. **Run full suite** — Target: 87/87 = 100%.
 5. **Migrate remaining hardcoded UI strings to AppLocalizations** — notifications_page, send_invitation_page, accept_invitation_page, chat pages, calendar pages.
 
 ## Production Bugs Found This Session
