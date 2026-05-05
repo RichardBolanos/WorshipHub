@@ -1,21 +1,15 @@
 {
-  "enabled": true,
+  "enabled": false,
   "name": "Update Docs on Code Change",
   "description": "Monitors Kotlin, Dart, YAML config files, and Gradle build files for changes and prompts the agent to update relevant documentation in README.md or WORSHIPHUB_DOCUMENTATION.md",
   "version": "1",
   "when": {
-    "type": "fileEdited",
-    "patterns": [
-      "**/*.kt",
-      "**/*.dart",
-      "**/*.gradle.kts",
-      "**/application*.yml",
-      "**/build.gradle.kts",
-      "**/settings.gradle.kts"
-    ]
+    "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
     "prompt": "A source file was just modified. Review the changes and update the relevant documentation in README.md to reflect any new features, API changes, configuration updates, or architectural modifications. Focus on keeping the documentation accurate and helpful for developers."
-  }
+  },
+  "workspaceFolderName": "WorshipHub",
+  "shortName": "docs-on-code-change"
 }

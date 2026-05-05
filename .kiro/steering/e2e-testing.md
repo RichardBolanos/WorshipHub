@@ -115,14 +115,42 @@ After a failure, read `test_output.log` first — it has everything needed to di
 
 ### 13. Debugging failed tests with Playwright report
 
-When `patrol test` fails, the error details are only visible in the Playwright HTML report — NOT in the terminal output or the `.md` files in `playwright-report/data/`.
+When `patrol test` fails on Chrome, the error details are visible in the Playwright HTML report.
+
+**Kiro can fetch the report directly:** Use `webFetch` on `http://127.0.0.1:5500/worship_hub_ui/playwright-report/index.html` to read the report without needing the user to paste logs. The Live Server extension must be running on the workspace for this URL to be accessible.
 
 **Workflow:**
 1. Kiro executes `patrol test` and captures the result
-2. If tests fail, the user opens `worship_hub_ui/playwright-report/index.html` via Live Server (http://127.0.0.1:5500/worship_hub_ui/playwright-report/index.html)
-3. The user copies the relevant error logs from the report and pastes them into the chat
+2. If tests fail, Kiro fetches `http://127.0.0.1:5500/worship_hub_ui/playwright-report/index.html` to read the Playwright report
+3. If the report doesn't have enough detail, ask the user to open it in the browser and paste the "Stdout" tab content for the failed test
 4. Kiro analyzes the logs and fixes the code
 
 **Why this is necessary:** Patrol web mode does not capture Flutter's error output in the terminal. The `PATROL_LOG` entries and Flutter exception stack traces are only visible in the Playwright report's "Stdout" tab for each failed test. The `.md` files in `playwright-report/data/` only contain a generic "Test finished" page snapshot — they do NOT contain the actual error.
 
 **Example:** This workflow found the `TeamChatPage.dispose()` bug — `context.read<ChatBloc>()` on a deactivated widget — which was completely invisible in terminal output but clearly shown in the Playwright report's stdout.
+
+### 14. Never run patrol tests as background processes
+
+Patrol tests are long-running commands that produce output incrementally. Always run them with `executePwsh` with a sufficient `timeout` (300000-600000ms). Never use `controlPwshProcess` — the output gets buffered and you can't monitor progress.
+
+### 15. PATH setup for patrol CLI
+
+The patrol CLI is installed in `$env:LOCALAPPDATA\Pub\Cache\bin`. Always prepend it to PATH before running patrol commands:
+```powershell
+$env:PATH = "$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
+```
+
+For Android, also add the Android SDK platform-tools:
+```powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:PATH = "$env:ANDROID_HOME\platform-tools;$env:PATH"
+```
+
+### 16. Android physical device requires `adb reverse`
+
+Physical Android devices cannot access `localhost` on the host machine. Before running tests on a physical device, set up port forwarding:
+```powershell
+adb -s <DEVICE_ID> reverse tcp:9090 tcp:9090
+```
+
+This makes `localhost:9090` on the device forward to port 9090 on the host. The `TestConfig` defaults to `localhost:9090` for Android when no `TEST_API_HOST` is provided.
