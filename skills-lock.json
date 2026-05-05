@@ -1,6 +1,11 @@
 {
   "version": 1,
   "skills": {
+    "api-error-handling": {
+      "source": "aj-geddes/useful-ai-prompts",
+      "sourceType": "github",
+      "computedHash": "92f7e9408df080873494325afd75b91b91b4ed75ecc27e84086fa56d7eaca382"
+    },
     "backend-api-patterns": {
       "source": "duyet/claude-plugins",
       "sourceType": "github",
