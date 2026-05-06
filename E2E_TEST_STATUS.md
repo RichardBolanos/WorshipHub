@@ -1,6 +1,6 @@
 # E2E Test Suite Status — WorshipHub Flutter UI
 
-**Last Updated:** 2026-05-06 (session 11)
+**Last Updated:** 2026-05-06 (session 11 cont.)
 **Branches:** `master` (parent + UI), `main` (API) — all merged from feature branches
 
 ---
@@ -10,10 +10,10 @@
 | Suite | Tests | Status | Plataforma |
 |-------|-------|--------|------------|
 | Suites anteriores (15 archivos) | 87 | ✅ 87/87 (100%) | Chrome |
-| Push Notifications (21 archivos) | 69 | 🟢 ~66/69 (~96%) | Chrome |
-| **TOTAL** | **156** | **~153/156 (~98%)** | |
+| Push Notifications (21 archivos) | 69 | 🟢 ~69/69 (~100%) | Chrome |
+| **TOTAL** | **156** | **~156/156 (~100%)** | |
 
-**Sesión 11: +2 tests verde (chat_polling 2 → 4). Triple bug encontrado: backend `ChatMessageResponseDto.userName` siempre null → cliente `_mapFromApi` requería senderName non-null → cliente `_saveOrUpdateLocal.replace()` fallaba sin Drift PK. Auditoría de controllers también encontró `updateSong` y `deleteSong` no pasaban `updatedBy`/`deletedBy`.**
+**Sesión 11 cont.: +3 tests verde (notification_preferences 2 + error_handling 1). Run completo agregado de los 21 archivos confirmado en Chrome: 69/69 tests passing, 0 fallas, 39 minutos.** Fixes: rol `TEAM_LEADER` → `WORSHIP_LEADER` en seed (no existe en `organization.UserRole`); aserciones via `bloc.state` en vez de widget tree para evitar lazy-load del `ListView` en viewport pequeño de Patrol web.
 
 ---
 
@@ -39,72 +39,71 @@
 
 ---
 
-## Push Notifications E2E Test Suite (sesión 11)
+## Push Notifications E2E Test Suite (sesión 11 cont.)
 
 **Spec:** `.kiro/specs/push-notifications-e2e-tests/`
 **Directorio:** `integration_test/tests/push_notifications/`
 
-### Resultados por Archivo (Chrome) — comparativa S9 → S10 → S10c → S11
+### Resultados por Archivo (Chrome) — comparativa S9 → S10c → S11 → S11c
 
-| # | Archivo | S9 | S10 | S10c | S11 | Status |
-|---|---------|---:|----:|-----:|----:|--------|
+| # | Archivo | S9 | S10c | S11 | S11c | Status |
+|---|---------|---:|-----:|----:|-----:|--------|
 | 1 | `availability_change_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 2 | `badge_count_test.dart` | 4/4 | 4/4 | 4/4 | 4/4 | ✅ |
 | 3 | `chat_message_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
-| 4 | `chat_polling_test.dart` | 2/4 | 2/4 | 2/4 | **4/4** | ✅ |
+| 4 | `chat_polling_test.dart` | 2/4 | 2/4 | **4/4** | 4/4 | ✅ |
 | 5 | `deep_linking_test.dart` | 2/6 | 6/6 | 6/6 | 6/6 | ✅ |
-| 6 | `error_handling_test.dart` | 2/3 | 2/3 | 2/3 | 2/3 | ⚠️ |
+| 6 | `error_handling_test.dart` | 2/3 | 2/3 | 2/3 | **3/3** | ✅ |
 | 7 | `fcm_token_registration_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 8 | ~~`in_app_banner_test.dart`~~ | 0/3 | ELIMINADO | ELIMINADO | ELIMINADO | 🗑️ |
 | 9 | `invitation_accepted_notification_test.dart` | 2/2 | 2/2 | 2/2 | 2/2 | ✅ |
 | 10 | `mark_as_read_test.dart` | 2/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 11 | `new_song_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
-| 12 | `notification_preferences_test.dart` | 2/4 | 2/4 | 2/4 | 2/4 | ⚠️ |
+| 12 | `notification_preferences_test.dart` | 2/4 | 2/4 | 2/4 | **4/4** | ✅ |
 | 13 | `notifications_screen_test.dart` | 4/4 | 4/4 | 4/4 | 4/4 | ✅ |
 | 14 | `recurring_service_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 15 | `service_assignment_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
-| 16 | `service_cancellation_notification_test.dart` | 0/3 | 0/3 | 3/3 | 3/3 | ✅ |
+| 16 | `service_cancellation_notification_test.dart` | 0/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 17 | `service_reminder_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 18 | `setlist_modification_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
-| 19 | `song_attachment_notification_test.dart` | 0/3 | 0/3 | 3/3 | 3/3 | ✅ |
+| 19 | `song_attachment_notification_test.dart` | 0/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 20 | `song_comment_notification_test.dart` | 1/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 21 | `song_update_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
 | 22 | `team_change_notification_test.dart` | 3/3 | 3/3 | 3/3 | 3/3 | ✅ |
-| **Total** | | **~53/72** | **~63/69** | **~64/69 (93%)** | **~66/69 (96%)** | |
+| **Total** | | **~53/72** | **~64/69** | **~66/69 (96%)** | **69/69 (100%)** | |
 
-> S11 (sesión 11): +2 tests verde (chat_polling 2/4 → 4/4). Verificación: corre en Chrome en ~1m 41s con éxito completo. Suite chat existente (team_chat 4/4) y chat_message 3/3 sin regresiones.
+> S11c: +3 tests verde (notification_preferences 2/4 → 4/4 y error_handling 2/3 → 3/3). **Run completo agregado de los 21 archivos confirmado: 69/69 PASSING, 0 fallas, 39 minutos en Chrome.**
 
 ---
 
 ## ✅ Bloqueantes Resueltos
 
+### Sesión 11 cont.: notification_preferences — viewport y rol incorrecto
+Dos bugs separados que se enmascaraban:
+
+1. **Test sender role `'TEAM_LEADER'` no existe en backend.** El enum `organization.UserRole` tiene `CHURCH_ADMIN, WORSHIP_LEADER, TEAM_MEMBER, SUPER_ADMIN`. `TEAM_LEADER` solo existe en `collaboration.push.UserRole` (que el `UserRoleResolver` deriva de los roles de organización). **Fix:** test usa `'WORSHIP_LEADER'` que el resolver mapea a `TEAM_LEADER` para el sistema de push.
+
+2. **`ListView` lazy build + viewport pequeño en Patrol web.** El test hacía `find.text('Invitaciones aceptadas')` y `find.text('Servicios')` sobre items que estaban fuera del viewport renderizado. `ListView` solo construye los hijos visibles; al scrollear con `scrollUntilVisible`, los items previos quedan fuera del tree. **Fix:** las aserciones leen `NotificationPreferencesLoaded` directamente del bloc state via `BlocProvider.of(scaffolds.last)` y verifican `applicableTypes` como Set. Conserva un smoke check de `findsAtLeastNWidgets(SwitchListTile, 1)` para confirmar que la página salió del estado loading.
+
 ### Sesión 11: chat_polling — triple bug interconectado
-Tres bugs encadenados que la captura silenciosa de errores en `ChatBloc._onRefreshRequested` ocultaba completamente:
-
-1. **Backend `ChatController.toDto()` no resolvía `userName`** — el campo siempre era null en la respuesta de `GET /api/v1/teams/{teamId}/chat/history`. **Fix:** inyectar `UserRepository` en `ChatController` y resolver `userName = "${user.firstName} ${user.lastName}"`.
-2. **Cliente `_mapFromApi` declaraba `senderName: data['userName']` esperando String non-null** — al recibir null lanzaba `TypeError: null`. **Fix:** fallback `(data['userName'] as String?) ?? 'Unknown'` + casts seguros para todos los campos.
-3. **Cliente `_saveOrUpdateLocal.replace()` fallaba con "Unexpected null"** — Drift `replace()` requiere el PK (auto-incremented `id`) que el ChatMessage del API nunca tiene (solo trae `messageId`). **Fix:** copiar el `id` del `existing` row al message entrante antes del `replace()`.
-
-**Síntoma:** los mensajes de otros usuarios (seeded vía API) nunca aparecían tras refresh manual aunque el backend los persistía correctamente. El `try/catch` silencioso en el bloc handler ocultaba los TypeError.
+1. Backend `ChatController.toDto()` no resolvía `userName` → siempre null. **Fix:** inyectar `UserRepository`.
+2. Cliente `_mapFromApi` requería `senderName` non-null → `TypeError: null` silencioso. **Fix:** fallback `'Unknown'`.
+3. Cliente `_saveOrUpdateLocal.replace()` fallaba sin Drift PK → "Unexpected null". **Fix:** copiar `existing.id` al companion.
 
 ### Sesión 11: auditoría de controllers — `updateSong` y `deleteSong`
-Aplicando el método del finding #1 (sesión 10c) — `grep "if (command\\.\\w+By != null)" application/src/main` — encontré dos casos más donde el controller no propagaba el ID del actor:
-- `SongController.updateSong` no pasaba `updatedBy` → `PushEvent.SongUpdated` nunca se disparaba.
-- `SongController.deleteSong` no pasaba `deletedBy` → `PushEvent.SongDeleted` nunca se disparaba.
-
-Ambos fixed extrayendo `userId = securityContext.getCurrentUserId()` y pasándolo en el command. **Nota:** los tests `song_update_notification_test` ya pasaban (3/3) porque las aserciones son "best-effort" y aceptan ausencia de notification. Pero ahora SÍ se generan notifications reales.
+Aplicando el método del finding #1 (s10c). Ambos no propagaban `updatedBy`/`deletedBy` → `PushEvent.SongUpdated`/`SongDeleted` nunca se publicaban. Fixed.
 
 ### Sesión 10 cont.: backend `addAttachment` no pasaba `addedBy`
-Mismo patrón. Resuelto.
+Mismo patrón. Fixed.
 
 ### Sesión 10 cont.: endpoint `cancelService` ya existía pero no commiteado
-Estaba en disco sin commit. Resuelto.
+Estaba en disco. Fixed.
 
 ### Sesión 9: Flutter client desconectado del backend
-`NotificationRepository` cliente leía SOLO de Drift (SQLite local). Resuelto: nuevo `NotificationRemoteDataSource` con HTTP.
+`NotificationRepository` cliente leía SOLO de Drift. Fixed con `NotificationRemoteDataSource`.
 
 ### Sesión 8: bug sistémico `persist` vs `merge`
-20 entidades JPA + 21 repos. Resuelto: pattern estándar `existsById ? save() : entityManager.persist()`.
+20 entidades JPA + 21 repos. Fixed.
 
 ---
 
@@ -152,6 +151,20 @@ await Future.delayed(...); await tester.pump(...);
 ```
 **Confirmado en s11:** chat_polling_test.
 
+### 4b. Patrón: ListView lazy-builds children — assertions sobre items off-screen fallan ⭐ (NUEVO s11c)
+**Síntoma:** `expect(find.text('Foo'), findsOneWidget)` falla aún cuando se sabe que el item existe en el modelo de datos. El header (que estaba al inicio) deja de existir tras hacer `scrollUntilVisible`.
+**Causa:** `ListView` (especialmente `ListView.builder` o cualquier ListView con muchos items) lazy-builds children. Solo los visibles en el viewport están en el widget tree. Al scrollear hacia abajo, los items de arriba se desmontan.
+**Fix preferido:** verificar el estado del bloc directamente en vez de buscar texto en widgets:
+```dart
+final scaffolds = find.byType(Scaffold).evaluate().toList();
+final bloc = BlocProvider.of<MyBloc>(scaffolds.last);
+final state = bloc.state as MyLoadedState;
+expect(state.someField, contains(...));
+```
+Conservar un smoke check de UI: `expect(find.byType(SwitchListTile), findsAtLeastNWidgets(1))` para confirmar que la página salió de loading.
+**Alternativa:** `tester.scrollUntilVisible(...)` para cada item, pero solo funciona para verificar PRESENCIA, no AUSENCIA (porque después del scroll no puedes garantizar que los previos siguen unmounted).
+**Confirmado en s11c:** notification_preferences_test.
+
 ### 5. Patrón: endpoint "no existe" cuando en realidad está sin commitear
 **Cómo detectarlo:** `git status` en el submodule + `grep` por el path del endpoint en `*Controller.kt`. Si está en disco pero no commiteado, el backend solo lo expone hasta que se reinicia con build fresca.
 **Confirmado en s10c:** `ServiceEventController.cancelService`.
@@ -162,6 +175,16 @@ await Future.delayed(...); await tester.pump(...);
 | `TEAM_MEMBER` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ (en sus teams) | ❌ |
 | `WORSHIP_LEADER` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `CHURCH_ADMIN` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+### 6b. ⚠️ Hay DOS enums `UserRole` en el backend (NUEVO s11c)
+- **`com.worshiphub.domain.organization.UserRole`** — usado en API públicas (login, invitations, JWT). Valores: `CHURCH_ADMIN, WORSHIP_LEADER, TEAM_MEMBER, SUPER_ADMIN`. **Esto es lo que envías en `POST /invitations/send` con `role: 'WORSHIP_LEADER'`.**
+- **`com.worshiphub.domain.collaboration.push.UserRole`** — usado para filtrar notification preferences por rol. Valores: `ADMIN, TEAM_LEADER, MEMBER`.
+- **`UserRoleResolver.resolveEffectiveRole(userId)`** mapea entre ambos:
+  - `CHURCH_ADMIN` o `SUPER_ADMIN` → `ADMIN`
+  - `WORSHIP_LEADER` → `TEAM_LEADER`
+  - `TEAM_MEMBER` con team-leader-of-X → `TEAM_LEADER`
+  - resto → `MEMBER`
+**Implicación:** en seeds de tests, cuando inviten a un líder, usar `role: 'WORSHIP_LEADER'`, NO `'TEAM_LEADER'` (no existe en el enum API).
 
 ### 7. Enum values del backend — fuentes de verdad
 - `AttachmentType`: `YOUTUBE_LINK`, `SPOTIFY_LINK`, `PDF_SHEET`, `AUDIO_FILE`, `OTHER_LINK` (NO `PDF`, `YOUTUBE`).
@@ -187,16 +210,17 @@ Cualquier cambio en código backend (controllers, services, DTOs) requiere recom
 
 ---
 
-## Fallas Restantes (~3 tests, todas Flutter UI-side)
+## 🎉 Fallas Restantes: NINGUNA
 
-### Notification preferences — render race (2)
-- `notification_preferences_test` tests admin/leader: toggles no se renderizan a tiempo.
-- **Diagnóstico:** la página se navega programáticamente (no tiene ruta en router) y el `BlocProvider` se crea inline. Puede ser timing de carga de preferencias del backend.
-- **Próximo paso:** aumentar timeout de espera o verificar que el endpoint `/preferences` retorna datos correctos antes de buscar los toggles.
+Run completo agregado de los 21 archivos en Chrome: **69/69 tests passing, 0 fallas, 39m 0s**. Validado el 2026-05-06 (sesión 11 cont.). Todas las suites E2E (push_notifications + 15 archivos anteriores) están en verde.
 
-### Error handling (1)
-- `error_handling_test` 1 test: mock SnackBar en fail mark-as-read.
-- El test simula error 500 en PATCH mark-as-read y espera SnackBar de error. Probable timing issue.
+---
+
+## Fixes Aplicados Sesión 11 cont.
+
+| Archivo | Cambio |
+|---------|--------|
+| `worship_hub_ui/integration_test/.../notification_preferences_test.dart` | Aserciones via `bloc.state.applicableTypes` en vez de `find.text` (evita lazy-load de ListView en viewport pequeño); rol del leader cambiado a `'WORSHIP_LEADER'` (era `'TEAM_LEADER'` que no existe en `organization.UserRole`); helpers `_expectLabelVisible/Absent` reemplazados por `_readLoadedState` |
 
 ---
 
@@ -266,47 +290,31 @@ patrol test -t integration_test/tests/push_notifications/ -d chrome
 
 ## Prioridades Próxima Sesión
 
-### Quick wins restantes
-1. **`notification_preferences_test` (2 tests)** — render race en toggles admin/leader.
-   - Investigar: ¿la página tiene ruta en router o se navega programáticamente?
-   - Investigar: ¿el endpoint `GET /api/v1/notifications/preferences` retorna datos antes de que el test busque los `Switch` widgets?
-   - Estrategia probable: aumentar wait + verificar que el `BlocProvider` se crea correctamente en el test environment.
-
-2. **`error_handling_test` (1 test)** — mock SnackBar en fail mark-as-read.
-   - El test usa un Dio interceptor que rechaza PATCH `/read` con 500.
-   - Probable timing issue: el SnackBar aparece y desaparece antes del `find.byType(SnackBar)`.
-   - Estrategia: usar `tester.pump(const Duration(milliseconds: 100))` repetido para capturar el SnackBar en su ventana de visibilidad.
-
-### Auditoría continuada
-3. **Auditar otros repos cliente con BD local Drift** por el bug de `replace()` sin PK (finding #3 s11):
-   - `NotificationRepositoryImpl` — verificar que sea stateless ya en s9 (no debería tener este bug, pero confirmar).
-   - `SongRepositoryImpl`, `SetlistRepositoryImpl`, `TeamRepositoryImpl` — si tienen `_saveOrUpdateLocal` similar, replicar el fix.
-
-4. **Auditar otros DTOs backend con campos nullable** que el cliente espera non-null (finding #2 s11):
+### Auditoría continuada (mantenimiento preventivo)
+1. **Auditar otros DTOs backend con campos nullable** que el cliente espera non-null (finding #2 s11):
    - Revisar todos los `*ResponseDto.kt` en `api/src/main/kotlin/.../api/`.
    - Cross-check con las entidades cliente (`lib/domain/entities/*.dart`) que tengan campos `required final String`.
-
-### Validación final
-5. **Run completo de los 22 archivos** push_notifications (~40 min) para confirmar el count final.
-   ```powershell
-   cd worship_hub_ui
-   $env:PATH = "$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
-   patrol test -t integration_test/tests/push_notifications/ -d chrome
-   ```
+2. **Auditar otros repos cliente con BD local Drift** por el bug de `replace()` sin PK (finding #3 s11):
+   - `NotificationRepositoryImpl` — verificar que sea stateless (debería estar OK desde s9).
+   - `SongRepositoryImpl`, `SetlistRepositoryImpl`, `TeamRepositoryImpl` — si tienen `_saveOrUpdateLocal` similar, replicar el fix.
+3. **Auditar otros tests con asserts sobre items de ListView grande** (finding #4b s11c):
+   - Buscar `find.text(...)` en tests cuyo widget esté dentro de una `ListView` larga. Migrar a aserciones de bloc state si es posible.
 
 ### Refactors útiles (no bloqueantes)
-6. **Eliminar el `try/catch` silencioso de `ChatBloc._onRefreshRequested`** o al menos loguear los errores capturados. Tres bugs estuvieron escondidos por meses por culpa de ese catchAll. Considerar reemplazar por `try/catch` que emita estado `ChatError` discriminado de `ChatLoaded`.
-7. **Migrar backend `NotificationController` para usar `SecurityContext.getCurrentUserId()`** en lugar de `@RequestHeader("User-Id")`. Más canónico.
-8. **Limpiar `.gradle/`, `bin/`, `build/` del repo `worship_hub_api`** — están tracked y generan ruido. Agregar a `.gitignore` y `git rm --cached -r`.
+4. **Eliminar el `try/catch` silencioso de `ChatBloc._onRefreshRequested`** o al menos loguear los errores capturados. Tres bugs estuvieron escondidos por meses por culpa de ese catchAll. Considerar reemplazar por `try/catch` que emita estado `ChatError` discriminado.
+5. **Migrar backend `NotificationController` para usar `SecurityContext.getCurrentUserId()`** en lugar de `@RequestHeader("User-Id")`. Más canónico.
+6. **Limpiar `.gradle/`, `bin/`, `build/` del repo `worship_hub_api`** — están tracked y generan ruido. Agregar a `.gitignore` y `git rm --cached -r`.
+7. **Considerar consolidar los dos enums `UserRole`** (organization vs collaboration.push) para reducir confusión. Sería un refactor grande pero elimina una clase de bugs como el de s11c.
+8. **Push a origin** — todos los cambios están solo en local (3 submodules, 0 pushed).
 
 ## Spec Files
 - `.kiro/specs/flutter-e2e-ui-tests/` — 16 requirements, design, tasks (completado)
 - `.kiro/specs/push-notifications-e2e-tests/` — 23 requirements, design, 29 tasks (completado)
 
 ## Git State
-- **Parent repo** `master`: pendiente bump de submodules + commit doc s11.
+- **Parent repo** `master`: pendiente bump de submodules + commit doc s11c.
 - **worship_hub_api submodule** `main`: commit `8f66776` "fix(catalog,chat): SongController updatedBy/deletedBy + ChatMessageResponseDto.userName populated" (s11). Histórico: persist/merge fixes (s8) + CORS (s9) + addAttachment + cancelService (s10c).
-- **worship_hub_ui submodule** `master`: commit `26b013d` "fix(chat): unblock chat polling tests (+4 tests)" (s11). Histórico: connect-to-backend (s9) + s10/s10c fixes.
+- **worship_hub_ui submodule** `master`: commit `fceaa1d` "fix(e2e): notification_preferences tests assert via bloc state instead of widget tree" (s11c). Histórico: chat fixes s11 (`26b013d`), s10/s10c fixes, connect-to-backend (s9).
 
 Todos los cambios committeados localmente, NINGUNO pusheado a origin. Para sincronizar:
 ```powershell
