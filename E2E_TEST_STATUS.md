@@ -10,10 +10,10 @@
 | Suite | Tests | Status | Plataforma |
 |-------|-------|--------|------------|
 | Suites anteriores (15 archivos) | 87 | ✅ 87/87 (100%) | Chrome |
-| Push Notifications (21 archivos) | 69 | 🟢 ~69/69 (~100%) | Chrome |
-| **TOTAL** | **156** | **~156/156 (~100%)** | |
+| Push Notifications (21 archivos) | 69 | 🟢 ~64/69 (~93%) | Chrome |
+| **TOTAL** | **156** | **~151/156 (~97%)** | |
 
-**Sesión 10 cont.: +6 tests verde. Fixes: backend addAttachment pasa `addedBy` (SecurityContext), AttachmentType enum values corregidos en seed helper (`YOUTUBE_LINK`, `PDF_SHEET`), flujo invertido en song_attachment (admin crea song, member comenta, admin agrega attachment).**
+**Sesión 10 cont.: +6 tests verde (service_cancellation 3/3 + song_attachment 3/3). Fixes: backend `addAttachment` pasa `addedBy` (SecurityContext), `AttachmentType` enum values corregidos en seed helper (`YOUTUBE_LINK`, `PDF_SHEET`), flujo invertido en song_attachment (admin crea song, member comenta, admin agrega attachment). Endpoint `cancelService` ya estaba implementado pero sin commitear.**
 
 ---
 
@@ -97,6 +97,50 @@ Entidades JPA sin `@GeneratedValue` + repos con `EntityManager.persist()`. 20 en
 
 ---
 
+## Hallazgos Útiles para Futuras Sesiones
+
+### 1. Patrón: controllers que no propagan IDs del SecurityContext al command/event
+**Síntoma:** push notifications no se generan a pesar de que el endpoint responde 200/201.
+**Causa:** application service tiene un guard `if (command.someUserId != null) { eventPublisher.publish(...) }` y el controller construye el command sin extraer el ID del `securityContext`.
+**Cómo detectarlo rápido:** grep `eventPublisher.publishEvent` en application services y verificar que el controller correspondiente pasa todos los IDs del usuario actuante.
+**Confirmados con bug en sesión 10c:** `SongController.addAttachment` (fixed). **A revisar:** otros endpoints similares (`updateSong`, `deleteSong`, `addComment`, `markAvailable/Unavailable`, etc.).
+
+### 2. Patrón: endpoint "no existe" cuando en realidad está sin commitear
+**Síntoma:** test reporta error de endpoint missing/404, doc dice "endpoint no existe".
+**Cómo detectarlo:** `git status` en el submodule + `grep` por el path del endpoint en `*Controller.kt`. Si está en disco pero no commiteado, el backend solo lo expone hasta que se reinicia con build fresca.
+**Confirmado en sesión 10c:** `ServiceEventController.cancelService` (PUT `/services/{id}/cancel`) ya implementado, solo había que commitear y reiniciar backend.
+
+### 3. Roles y permisos — qué puede hacer cada rol
+| Rol | Crear song | Agregar attachment | Crear team | Cancelar service | Comentar song | Enviar chat | Crear setlist |
+|-----|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `TEAM_MEMBER` | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ (en sus teams) | ❌ |
+| `WORSHIP_LEADER` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| `CHURCH_ADMIN` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**Implicación para tests E2E:** cuando una notification requiere "user A actúa, user B recibe", el actor casi siempre debe ser `CHURCH_ADMIN` (rol del registerChurch) o un user invitado con `WORSHIP_LEADER`. El receptor/recipient puede ser `TEAM_MEMBER`. Si necesitas que el receptor genere una "subscripción" (ej. ser commenter para recibir SONG_ATTACHMENT), haz que el member comente PRIMERO antes de la acción del admin.
+
+### 4. Enum values del backend — fuentes de verdad
+- `AttachmentType`: `YOUTUBE_LINK`, `SPOTIFY_LINK`, `PDF_SHEET`, `AUDIO_FILE`, `OTHER_LINK` (NO `PDF`, `YOUTUBE`).
+- `TeamRole`: `LEAD_VOCALIST`, `BACKING_VOCALIST`, `ACOUSTIC_GUITAR`, `ELECTRIC_GUITAR`, `BASS_GUITAR`, `DRUMS`, `KEYBOARD`, `SOUND_ENGINEER`, `WORSHIP_LEADER`.
+- `NotificationType`: ver `domain/.../collaboration/Notification.kt`. Hay mappers `notificationTypeFromBackend`/`notificationTypeToBackend` en el cliente.
+**Cómo verificar rápido:** `grep -r "enum class AttachmentType" worship_hub_api/domain` o ver el `application_service` que lo usa.
+
+### 5. Tests Patrol web tienen quirks de timing
+- `Timer.periodic` no dispara automáticamente en tests web (chrome). Para chat polling y similares, hay que disparar el evento de refresh manualmente con `bloc.add(RefreshRequested(...))` y combinar `Future.delayed` (real) con `tester.pump` (controlado).
+- `find.text(...)` necesita `pump` después de cualquier acción async para que el widget se reconstruya.
+- Login programático (`seedHelper.login`) y login UI (`loginHelper.loginViaUI`) son mundos paralelos. El primero solo da token para HTTP seeding; el segundo es el que tiene la sesión real en la app.
+- Cuando se navega por deep link (sin `extra` en GoRouter), las páginas que esperan un objeto entero (ej. `SongDetailPage(song: ...)`) tienen que poder cargarlo del backend con solo el ID.
+
+### 6. Backend H2 + bug `persist` vs `merge` (sesión 8, ya resuelto)
+Si vuelven a aparecer `StaleObjectStateException`, revisar entidades JPA: deben NO tener `@GeneratedValue` (UUID se genera en Kotlin) y los repos deben usar el patrón `existsById ? save() : entityManager.persist()`. Patrón documentado en `infrastructure/.../*RepositoryImpl.kt`.
+
+### 7. `gradlew bootRun` con perfil h2 + path correcto del actuator
+- `actuator/health` NO está habilitado por default — usar `/api/v1/health` para el health check.
+- Backend tarda ~15s en arrancar; loop con `Invoke-WebRequest` cada 2s funciona bien.
+- Para parar el backend después de tests: `Get-Process java | Stop-Process -Force`.
+
+---
+
 ## Fallas Restantes (~5 tests, todas Flutter UI-side)
 
 ### Chat polling — bug de seed/permisos (2)
@@ -171,18 +215,55 @@ patrol test -t integration_test/tests/push_notifications/ -d chrome
 
 ## Prioridades Próxima Sesión
 
-1. **`chat_polling_test` (2 tests)** — diagnóstico con logging del flujo seed → API → polling. Verificar que `addTeamMember` persiste en H2 y que el member puede `POST /teams/{teamId}/messages`.
-2. **`notification_preferences_test` (2 tests)** — render race en toggles admin/leader.
-3. **`error_handling_test` (1 test)** — mock SnackBar en fail mark-as-read.
-4. **Run completo de los 22 archivos** (~40 min) para confirmar el count final.
-5. **Migrar backend `NotificationController` para usar SecurityContext.getCurrentUserId()** en lugar de `@RequestHeader("User-Id")`.
+### Quick wins (probables, < 30 min cada uno)
+1. **Auditar otros controllers por el patrón `addedBy` missing** (similar al fix sesión 10c). Endpoints sospechosos para revisar:
+   - `SongController.updateSong` — ¿pasa `updatedBy` al command para PushEvent.SongUpdated?
+   - `SongController.addComment` — ya pasa `userId` pero verificar.
+   - `ServiceEventController.create/update/cancel` — verificar que el `cancelledBy`/`updatedBy` llegue al event.
+   - `TeamController.addMember/removeMember/changeRole` — para TEAM_ASSIGNMENT events.
+   - `CalendarController.markAvailable/markUnavailable` — para AVAILABILITY_CHANGE.
+   - **Método rápido:** `grep -A 5 "if (command\..*By != null)" application/src/main` y validar que el controller correspondiente extrae el `userId`.
+
+### Tests restantes (5)
+2. **`chat_polling_test` (2 tests)** — diagnóstico con logging del flujo seed → API → polling. Verificar:
+   - `addTeamMember` persiste en H2 (revisar tabla `team_members`).
+   - El member puede `POST /teams/{teamId}/messages` (no se rechaza por permission).
+   - `ChatRepositoryImpl._fetchMessagesFromApi` no traga excepciones silenciosamente.
+   - Considerar: el endpoint `POST /teams/{teamId}/messages` puede requerir que el usuario sea miembro del team Y tener cierto rol — confirmar reglas.
+
+3. **`notification_preferences_test` (2 tests)** — render race en toggles admin/leader.
+   - Los tests fallan porque la página se navega programáticamente (no tiene ruta en router) y el `BlocProvider` se crea inline.
+   - Próximo paso: aumentar timeout de espera o verificar que el endpoint `/preferences` retorna datos antes de buscar los toggles.
+
+4. **`error_handling_test` (1 test)** — mock SnackBar en fail mark-as-read.
+   - El test simula error 500 en PATCH mark-as-read y espera SnackBar de error.
+   - Probable timing issue o que el error se muestra pero no se queda en pantalla suficiente tiempo para `find.byType(SnackBar)`.
+
+### Validación final
+5. **Run completo de los 22 archivos** (~40 min) para confirmar el count final. Comando:
+   ```powershell
+   cd worship_hub_ui
+   $env:PATH = "$env:LOCALAPPDATA\Pub\Cache\bin;$env:PATH"
+   patrol test -t integration_test/tests/push_notifications/ -d chrome
+   ```
+
+### Refactors útiles (no bloqueantes)
+6. **Migrar backend `NotificationController` para usar `SecurityContext.getCurrentUserId()`** en lugar de `@RequestHeader("User-Id")`. Más canónico: no confía en cliente para identidad del user.
+7. **Limpiar `.gradle/`, `bin/`, `build/` del repo `worship_hub_api`** — están tracked y generan ruido en cada `git status`. Agregar a `.gitignore` y hacer `git rm --cached -r`.
 
 ## Spec Files
 - `.kiro/specs/flutter-e2e-ui-tests/` — 16 requirements, design, tasks (completado)
 - `.kiro/specs/push-notifications-e2e-tests/` — 23 requirements, design, 29 tasks (completado)
 
 ## Git State
-- **Parent repo**: `master` con commits de sesiones 7/8/9/10.
-- **worship_hub_api submodule**: `main` con fixes persist/merge (s8) + CORS User-Id (s9) + fix addAttachment (s10c, pendiente commit) + cancelService endpoint (pendiente commit).
-- **worship_hub_ui submodule**: `master` con connect-to-backend (s9) + s10 fixes + s10c song_attachment fix (pendiente commit).
+- **Parent repo** `master`: commit `0da03e5` "docs(e2e): session 10 cont. — +6 tests verde (~64/69 push notifications)" (sesiones 7/8/9/10/10c).
+- **worship_hub_api submodule** `main`: commit `3e80dc8` "fix(notifications): SONG_ATTACHMENT push event now triggers + cancelService endpoint" (s10c). Histórico: persist/merge fixes (s8) + CORS User-Id (s9).
+- **worship_hub_ui submodule** `master`: commit `84cf7b8` "feat(e2e): session 10 push notification fixes (+16 tests passing)" (s10 + s10c). Histórico: connect-to-backend (s9).
+
+Todos los cambios committeados localmente, NINGUNO pusheado a origin. Para sincronizar (cuando quieras):
+```powershell
+cd worship_hub_api && git push origin main
+cd ../worship_hub_ui && git push origin master
+cd .. && git push origin master
+```
 
