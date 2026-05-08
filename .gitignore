@@ -8,3 +8,9 @@ Thumbs.db
 
 # Node
 node_modules/
+
+# Hotplate — local TLS certs + agent event logs.
+# .hotplate/certs/ contains the private key for the local-dev TLS
+# proxy and must never be committed; .hotplate/logs/ is regenerated
+# on every agent run.
+.hotplate/
