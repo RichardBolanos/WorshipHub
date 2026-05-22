@@ -1,7 +1,7 @@
 {
   "enabled": false,
   "name": "Update Docs on Code Change",
-  "description": "Monitors Kotlin, Dart, YAML config files, and Gradle build files for changes and prompts the agent to update relevant documentation in README.md or WORSHIPHUB_DOCUMENTATION.md",
+  "description": "Monitors Kotlin, Dart, YAML config files, and Gradle build files for changes and prompts the agent to update relevant documentation in README.md or under docs/ (see docs/README.md for the navigation hub)",
   "version": "1",
   "when": {
     "type": "userTriggered"

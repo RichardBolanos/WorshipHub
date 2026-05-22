@@ -29,6 +29,8 @@ Monorepo del proyecto **WorshipHub** — una plataforma completa para la gestió
 
 ```
 WorshipHub/
+├── docs/               # Documentación del monorepo (arquitectura, deployment, runbooks)
+│                       # → ver docs/README.md como hub de navegación
 ├── .kiro/              # Configuración de Kiro (specs, steering, hooks, skills)
 ├── .github/            # Workflows de CI/CD
 ├── worship_hub_api/    # Backend - Spring Boot + Kotlin (submodule)
@@ -155,7 +157,7 @@ deploy-local.bat clean
 | Actuator health | http://localhost:9090/actuator/health |
 | PostgreSQL | localhost:5442 |
 
-Para documentación completa, troubleshooting y detalles de arquitectura del stack local, ver [DOCKER_LOCAL.md](worship_hub_api/DOCKER_LOCAL.md).
+Para documentación completa, troubleshooting y detalles de arquitectura del stack local, ver [docs/deployment/docker-local.md](docs/deployment/docker-local.md).
 
 ## Ejecutar el frontend Flutter
 
@@ -180,26 +182,35 @@ scripts\build-apk.bat production api.worshiphub.com
 
 Plataformas soportadas: **Android**, **Web**, **Windows**, **Linux** (no hay iOS/macOS por ahora).
 
-Para detalles sobre ambientes y configuración del frontend, ver [ENVIRONMENT_CONFIGURATION.md](worship_hub_ui/ENVIRONMENT_CONFIGURATION.md) y [OFFLINE_FIRST.md](worship_hub_ui/OFFLINE_FIRST.md) (arquitectura de sincronización).
+Para detalles sobre ambientes y configuración del frontend, ver [docs/deployment/environments.md](docs/deployment/environments.md) y [docs/frontend/offline-first.md](docs/frontend/offline-first.md) (arquitectura de sincronización).
 
-## Documentación por subproyecto
+## Documentación
 
-### Backend (`worship_hub_api/`)
-- [README.md](worship_hub_api/README.md) — instalación, configuración, endpoints
-- [DOCKER_LOCAL.md](worship_hub_api/DOCKER_LOCAL.md) — stack local con Docker Compose
-- [PROJECT_STRUCTURE.md](worship_hub_api/PROJECT_STRUCTURE.md) — organización de módulos
-- [WORSHIPHUB_DOCUMENTATION.md](worship_hub_api/WORSHIPHUB_DOCUMENTATION.md) — documentación funcional detallada
-- [DOMAIN_EVENTS_IMPLEMENTATION.md](worship_hub_api/DOMAIN_EVENTS_IMPLEMENTATION.md) — eventos de dominio y push
+Toda la documentación profunda del proyecto vive en [`docs/`](docs/). Empieza por el hub:
 
-### Frontend (`worship_hub_ui/`)
-- [README.md](worship_hub_ui/README.md) — instalación, configuración, arquitectura
-- [OFFLINE_FIRST.md](worship_hub_ui/OFFLINE_FIRST.md) — **documento canónico** de la arquitectura de sincronización
-- [ENVIRONMENT_CONFIGURATION.md](worship_hub_ui/ENVIRONMENT_CONFIGURATION.md) — ambientes y `--dart-define`
-- [APK_BUILD.md](worship_hub_ui/APK_BUILD.md) — build de APKs (dev/prod)
-- [integration_test/README.md](worship_hub_ui/integration_test/README.md) — ejecución de tests Patrol E2E
+> **[`docs/README.md`](docs/README.md)** — índice navegable por dominio (arquitectura, backend, frontend, deployment, testing, operations).
 
-### Monorepo
-- [E2E_TEST_STATUS.md](E2E_TEST_STATUS.md) — estado de la suite de tests end-to-end
+### Atajos por tema
+
+| Necesito… | Documento |
+|---|---|
+| Entender cómo se borran cosas en cascada (FK, eventos FCM, tombstones offline) | [`docs/architecture/cascade-deletion.md`](docs/architecture/cascade-deletion.md) |
+| La arquitectura de sincronización offline-first del cliente Flutter | [`docs/frontend/offline-first.md`](docs/frontend/offline-first.md) |
+| Visión funcional completa del backend | [`docs/backend/overview.md`](docs/backend/overview.md) |
+| Optimizaciones de cold start en Render | [`docs/backend/cold-start-optimization.md`](docs/backend/cold-start-optimization.md) |
+| Eventos de dominio y la pipeline de push | [`docs/architecture/domain-events.md`](docs/architecture/domain-events.md) |
+| Levantar el stack local con Docker | [`docs/deployment/docker-local.md`](docs/deployment/docker-local.md) |
+| Construir un APK | [`docs/deployment/apk-build.md`](docs/deployment/apk-build.md) |
+| Configurar ambientes Flutter | [`docs/deployment/environments.md`](docs/deployment/environments.md) |
+| Estado de la suite E2E | [`docs/testing/e2e-status.md`](docs/testing/e2e-status.md) |
+
+### READMEs operativos
+
+Los `README.md` de cada subproyecto siguen siendo el punto de entrada para "cómo correr/configurar este módulo":
+
+- [`worship_hub_api/README.md`](worship_hub_api/README.md)
+- [`worship_hub_ui/README.md`](worship_hub_ui/README.md)
+- [`worship_hub_ui/integration_test/README.md`](worship_hub_ui/integration_test/README.md) — tests Patrol
 
 ## Licencia
 
