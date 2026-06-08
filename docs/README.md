@@ -16,6 +16,7 @@ Centro de documentación del monorepo. Aquí vive todo lo que no es código: arq
 | **Frontend / offline-first** | [`frontend/offline-first.md`](./frontend/offline-first.md). |
 | **Tests E2E** | [`testing/e2e-status.md`](./testing/e2e-status.md). |
 | **Backend en Render se cae** | [`backend/cold-start-optimization.md`](./backend/cold-start-optimization.md). |
+| **Vas a tocar la generación de setlists** | [`backend/setlist-auto-generation.md`](./backend/setlist-auto-generation.md). |
 | **Investigando un incidente histórico** | [`operations/`](./operations/). |
 
 ---
@@ -37,6 +38,7 @@ Documentación específica del servicio Spring Boot.
 | Documento | Qué contiene |
 |---|---|
 | [`backend/overview.md`](./backend/overview.md) | Visión funcional completa: bounded contexts, ~90 endpoints, modelos de datos, requisitos de producto. |
+| [`backend/setlist-auto-generation.md`](./backend/setlist-auto-generation.md) | **Documento canónico** del motor de generación automática de setlists: secciones libres por usuario, filtros globales con override por sección (categorías, tags, BPM, recencia), plantillas reutilizables por iglesia, rotación por uso, shuffle acotado, flujo end-to-end y guía de extensión. |
 | [`backend/cold-start-optimization.md`](./backend/cold-start-optimization.md) | Optimizaciones de arranque para Render free tier (Hikari, Flyway, JPA, Firebase `@Lazy`, telemetría). Contiene tests de regresión que **no deben tumbarse**. |
 
 ## Frontend
