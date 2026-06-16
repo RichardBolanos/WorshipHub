@@ -48,6 +48,7 @@ Documentación específica del cliente Flutter.
 | Documento | Qué contiene |
 |---|---|
 | [`frontend/offline-first.md`](./frontend/offline-first.md) | **Documento canónico** del stack de sincronización: `SyncManager`, `SyncableRepository`, fases (`syncing > error > offline > pending > stale-cache > live`), pills de estado, `SyncStateStore`. ~912 líneas. |
+| [`frontend/setlist-presentation-mode.md`](./frontend/setlist-presentation-mode.md) | **Documento canónico** del modo de visualización en vivo de un setlist: vista inmersiva (`SetlistPresentationPage`), navegación de un toque, transposición rápida de sesión, tamaño de letra persistido y wakelock. Reutiliza `ChordProRenderer` / `ChordProTransposer` y los helpers `KeyTransposer` / `SetlistSongResolver`. |
 | [`frontend/websocket-cleanup-history.md`](./frontend/websocket-cleanup-history.md) | Histórico de la migración desde WebSocket/STOMP a polling + FCM data messages. Incluido como referencia para entender por qué la app hoy no usa WS. |
 
 ## Deployment
