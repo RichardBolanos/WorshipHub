@@ -51,18 +51,9 @@ if errorlevel 1 (
 )
 
 echo [1/2] Iniciando servicios Docker (PostgreSQL + Mailpit)...
-REM IMPORTANT: only start `db` and `mailpit` explicitly. The
-REM `docker-compose.yml` at the root of the API also declares a
-REM `backend` service that builds the GraalVM native image and
-REM listens on the same host port 9090 we want Gradle (bootRun) to
-REM claim from `start-local.bat`. If we let compose pick services by
-REM default it brings `backend` up too, which either (a) steals port
-REM 9090 so Gradle fails, or (b) loses the port race to Gradle and
-REM keeps rebuilding in the background — both break dev mode.
-REM
-REM For a native-backend-in-docker flow use `worship_hub_api\deploy-local.bat`
-REM instead; this launcher is specifically for "hot-reload + debug"
-REM development with the API running straight from Gradle.
+REM Remove orphan containers that conflict with compose-managed ones
+docker rm -f WorshipHubPostgres >nul 2>&1
+docker rm -f WorshipHubMailpit >nul 2>&1
 pushd "%API_DIR%"
 docker-compose up -d db mailpit
 if errorlevel 1 (
